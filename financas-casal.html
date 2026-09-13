@@ -1378,11 +1378,10 @@
 const STORAGE_KEY = 'financas-casal-v20';
 
 // ===== Sincronização com Google Sheets =====
-// Cole aqui a URL do seu Google Apps Script após o deploy:
-// SYNC temporariamente desativado — reative após confirmar os dados do seed
-const SYNC_URL = '';
+const SYNC_URL = 'https://script.google.com/macros/s/AKfycbz7mtFep13Gst9J4lYNFMu0c57KNlplmfpongiKB_vIalyLl7GUvd71zbdJ4gCfHkNG7g/exec';
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // pull automático a cada 5 minutos
 let _syncPushTimer = null;
+let _seededFresh = false; // true quando este dispositivo acabou de fazer seed (sem dados locais)
 let _syncBusy = false;
 
 const METHOD_LABEL = { pix: 'Pix / boleto', black: 'Black (Alyson)', prime: 'Prime (Tania)' };
@@ -1620,6 +1619,7 @@ function load(){
       .filter(k => k.startsWith('financas-casal') && k !== CUSTOM_CATS_KEY)
       .forEach(k => localStorage.removeItem(k));
   }catch(e){}
+  _seededFresh = true;
   const initial = seed();
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(initial)); }catch(e){}
   return initial;
@@ -4702,8 +4702,10 @@ applyCollapse();
 
 // ─── Iniciar sincronização com Google Sheets ─────────────────────────────────
 if (SYNC_URL) {
-  syncPull();
-  setInterval(syncPull, SYNC_INTERVAL_MS);
+  // Não faz pull automático ao abrir (evita dados antigos do Sheets sobrescreverem o local).
+  // Push ocorre automaticamente em qualquer save() (ex: marcar como pago).
+  // Pull periódico começa após 15s; botão "Atualizar" força pull imediato.
+  setTimeout(function(){ setInterval(syncPull, SYNC_INTERVAL_MS); }, 15000);
 }
 
 // ===== Mobile: sidebar drawer + bottom nav =====
