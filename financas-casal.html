@@ -3015,8 +3015,12 @@ function render(){
 }
 
 // ===== A pagar este mês =====
+var CARTOES = ['black', 'prime', 'basic', 'caju'];
+var CARTAO_LABELS = { black: 'Cartão Black', prime: 'Cartão Prime', basic: 'Cartão Basic', caju: 'Vale Caju' };
+var CARTAO_CORES  = { black: '#2d3748', prime: '#6c5ce7', basic: '#3b82c4', caju: '#18a558' };
+
 function renderAPagar() {
-  var hoje = new Date();
+  var hoje    = new Date();
   var mesAtual = monthKey(hoje.toISOString().slice(0,10));
   var hojeStr  = hoje.toISOString().slice(0,10);
   var em3dias  = new Date(hoje.getTime() + 3*24*60*60*1000).toISOString().slice(0,10);
@@ -3028,22 +3032,22 @@ function renderAPagar() {
     return monthKey(t.data) === mesAtual;
   });
 
-  // Ordena: atrasadas → urgentes (≤3 dias) → por data de referência
-  aPagar.sort(function(a, b){
-    var dA = dataReferenciaConta(a);
-    var dB = dataReferenciaConta(b);
-    return dA.localeCompare(dB);
-  });
-
   var total = aPagar.reduce(function(s, t){ return s + t.valor; }, 0);
 
-  var countEl  = document.getElementById('aPagarCount');
-  var totalEl  = document.getElementById('aPagarTotal');
-  var labelEl  = document.getElementById('aPagarTotalLabel');
-  var listEl   = document.getElementById('aPagarList');
+  var countEl = document.getElementById('aPagarCount');
+  var totalEl = document.getElementById('aPagarTotal');
+  var labelEl = document.getElementById('aPagarTotalLabel');
+  var listEl  = document.getElementById('aPagarList');
   if (!listEl) return;
 
-  if (countEl) countEl.textContent = aPagar.length + ' pendente' + (aPagar.length !== 1 ? 's' : '');
+  // Conta itens visíveis: individuais (pix/fixo) + 1 por cartão com saldo pendente
+  var individuais = aPagar.filter(function(t){ return CARTOES.indexOf(t.forma) === -1; });
+  var cartoesComSaldo = CARTOES.filter(function(c){
+    return aPagar.some(function(t){ return t.forma === c; });
+  });
+  var nItens = individuais.length + cartoesComSaldo.length;
+
+  if (countEl) countEl.textContent = nItens + ' pendente' + (nItens !== 1 ? 's' : '');
 
   if (aPagar.length === 0) {
     if (totalEl) { totalEl.textContent = 'R$ 0,00'; totalEl.style.color = 'var(--accent)'; }
@@ -3055,43 +3059,73 @@ function renderAPagar() {
   if (totalEl) { totalEl.textContent = fmt(total); totalEl.style.color = 'var(--rose)'; }
   if (labelEl) labelEl.textContent = 'restante para pagar';
 
-  var tipoLabel = function(t){
-    if (t.tipo === 'fixo') return 'Fixo';
-    if (t.forma === 'black')  return 'Black';
-    if (t.forma === 'prime')  return 'Prime';
-    if (t.forma === 'basic')  return 'Basic';
-    if (t.forma === 'caju')   return 'Caju';
-    return 'Pix';
-  };
+  var rows = [];
 
-  listEl.innerHTML = aPagar.map(function(t){
-    var ref = dataReferenciaConta(t);
+  // Itens individuais (pix e fixos) — ordenados por urgência
+  individuais.sort(function(a, b){
+    return dataReferenciaConta(a).localeCompare(dataReferenciaConta(b));
+  });
+  individuais.forEach(function(t){
+    var ref      = dataReferenciaConta(t);
     var atrasado = ref < hojeStr;
     var urgente  = !atrasado && ref <= em3dias;
     var cls      = atrasado ? 'atrasado' : urgente ? 'urgente' : '';
     var dot      = atrasado ? 'var(--rose)' : urgente ? 'var(--amber)' : 'var(--violet)';
-
+    var tipoLabel = t.tipo === 'fixo' ? 'Fixo' : 'Pix';
     var dataLabel = '';
     if (t.tipo === 'fixo' && t.vencimento) {
       dataLabel = atrasado ? 'Venceu dia ' + t.vencimento : 'Vence dia ' + t.vencimento;
     } else if (t.data) {
       dataLabel = new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
     }
+    rows.push(
+      '<div class="apagar-item ' + cls + '">' +
+        '<span class="apagar-dot" style="background:' + dot + '"></span>' +
+        '<span class="apagar-desc">' + t.desc + '<span class="apagar-tipo">' + tipoLabel + '</span></span>' +
+        '<span class="apagar-venc">' + dataLabel + '</span>' +
+        '<span class="apagar-val">' + fmt(t.valor) + '</span>' +
+        '<button class="apagar-btn" onclick="pagarItem(\'' + t.id + '\')">✓ Pagar</button>' +
+      '</div>'
+    );
+  });
 
-    return '<div class="apagar-item ' + cls + '">' +
-      '<span class="apagar-dot" style="background:' + dot + '"></span>' +
-      '<span class="apagar-desc">' + t.desc + '<span class="apagar-tipo">' + tipoLabel(t) + '</span></span>' +
-      '<span class="apagar-venc">' + dataLabel + '</span>' +
-      '<span class="apagar-val">' + fmt(t.valor) + '</span>' +
-      '<button class="apagar-btn" onclick="pagarItem(\'' + t.id + '\')">✓ Pagar</button>' +
-    '</div>';
-  }).join('');
+  // Cartões agrupados — um item por cartão com o total da fatura
+  CARTOES.forEach(function(forma){
+    var itens = aPagar.filter(function(t){ return t.forma === forma; });
+    if (!itens.length) return;
+    var totalCartao = itens.reduce(function(s, t){ return s + t.valor; }, 0);
+    var cor = CARTAO_CORES[forma] || 'var(--violet)';
+    var label = CARTAO_LABELS[forma] || forma;
+    var nComp = itens.length;
+    rows.push(
+      '<div class="apagar-item">' +
+        '<span class="apagar-dot" style="background:' + cor + '"></span>' +
+        '<span class="apagar-desc">' + label + '<span class="apagar-tipo">' + nComp + ' compra' + (nComp !== 1 ? 's' : '') + '</span></span>' +
+        '<span class="apagar-venc">Fatura do mês</span>' +
+        '<span class="apagar-val">' + fmt(totalCartao) + '</span>' +
+        '<button class="apagar-btn" onclick="pagarCartao(\'' + forma + '\')">✓ Pagar fatura</button>' +
+      '</div>'
+    );
+  });
+
+  listEl.innerHTML = rows.join('');
 }
 
 function pagarItem(id) {
   var t = txs.find(function(tx){ return tx.id === id; });
   if (!t) return;
   t.pago = true;
+  save(txs);
+  render();
+  scheduleSyncPush();
+}
+
+function pagarCartao(forma) {
+  var hoje = new Date();
+  var mesAtual = monthKey(hoje.toISOString().slice(0,10));
+  txs.forEach(function(t){
+    if (t.forma === forma && !t.pago && monthKey(t.data) === mesAtual) t.pago = true;
+  });
   save(txs);
   render();
   scheduleSyncPush();
