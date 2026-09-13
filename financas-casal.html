@@ -1661,13 +1661,8 @@ async function syncPush() {
     var cardLimits = {};
     try { cardLimits = JSON.parse(localStorage.getItem('financas-casal-card-limits') || '{}'); } catch(e) {}
 
-    // Só sincroniza até o mês atual — meses futuros são regenerados no carregamento
-    var hoje = new Date();
-    var mesAtual = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
-    var txsSync = txs.filter(function(t){ return !t.data || t.data.slice(0,7) <= mesAtual; });
-
-    // Enxuga campos vazios para reduzir payload
-    var txsLean = txsSync.map(function(t){
+    // Envia TODAS as transações (inclusive meses futuros) para garantir sync completo
+    var txsLean = txs.map(function(t){
       var o = { id: t.id, desc: t.desc, valor: t.valor, tipo: t.tipo, forma: t.forma, data: t.data, pago: t.pago };
       if (t.obs)          o.obs          = t.obs;
       if (t.subcategoria) o.subcategoria = t.subcategoria;
@@ -1677,7 +1672,7 @@ async function syncPush() {
       if (t.parcelaAtual) o.parcelaAtual = t.parcelaAtual;
       return o;
     });
-    console.log('[sync] enviando', txsLean.length, 'de', txs.length, 'transações (excluindo meses futuros)');
+    console.log('[sync] enviando', txsLean.length, 'transações (completo)');
     await _sendField('txs',    JSON.stringify(txsLean));
     await _sendField('metas',  JSON.stringify(metas));
     await _sendField('config', JSON.stringify({ budgetLimit: budgetLimit, cardLimits: cardLimits }));
@@ -1717,8 +1712,22 @@ async function syncPull(force) {
     if (data.error) throw new Error(data.error);
 
     var changed = false;
-    if (Array.isArray(data.txs) && (force || data.txs.length >= txs.length)) {
-      txs = data.txs;
+    if (Array.isArray(data.txs) && data.txs.length > 0) {
+      // Merge por ID: atualiza campos das txs que existem no Sheets,
+      // mantém txs locais que não estão no Sheets (adicionadas só neste device),
+      // e adiciona txs do Sheets que não existem localmente (adicionadas em outro device).
+      var sheetsMap = {};
+      data.txs.forEach(function(t){ sheetsMap[t.id] = t; });
+
+      var localIds = {};
+      txs = txs.map(function(t){
+        localIds[t.id] = true;
+        return sheetsMap[t.id] ? Object.assign({}, t, sheetsMap[t.id]) : t;
+      });
+      data.txs.forEach(function(t){
+        if (!localIds[t.id]) txs.push(t);
+      });
+
       localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
       changed = true;
     }
@@ -4702,10 +4711,9 @@ applyCollapse();
 
 // ─── Iniciar sincronização com Google Sheets ─────────────────────────────────
 if (SYNC_URL) {
-  // Não faz pull automático ao abrir (evita dados antigos do Sheets sobrescreverem o local).
-  // Push ocorre automaticamente em qualquer save() (ex: marcar como pago).
-  // Pull periódico começa após 15s; botão "Atualizar" força pull imediato.
-  setTimeout(function(){ setInterval(syncPull, SYNC_INTERVAL_MS); }, 15000);
+  // Pull inicial após 3s (dá tempo do DOM carregar) usando merge — seguro em qualquer device.
+  // Push automático em qualquer save(). Pull periódico a cada 5 min.
+  setTimeout(function(){ syncPull(); setInterval(syncPull, SYNC_INTERVAL_MS); }, 3000);
 }
 
 // ===== Mobile: sidebar drawer + bottom nav =====
