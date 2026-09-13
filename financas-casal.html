@@ -893,10 +893,11 @@
         <div class="topbar-actions">
           <div class="month-filter"><select id="monthSelect"></select></div>
           <button class="sync-refresh-btn" id="syncRefreshBtn" type="button" onclick="forceSyncPull()" title="Buscar dados mais recentes da nuvem">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg id="syncRefreshIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
             </svg>
-            Atualizar
+            <span id="syncRefreshLabel">Atualizar</span>
+            <span id="syncTopbarDot" class="sync-dot" style="display:none"></span>
           </button>
           <button class="ghost-btn" id="exportBtn" type="button">↓ Exportar backup</button>
           <label class="ghost-btn" for="importInput">↑ Importar backup</label>
@@ -1491,12 +1492,12 @@ async function syncPush() {
 async function forceSyncPull() {
   var btn = document.getElementById('syncRefreshBtn');
   if (btn) btn.classList.add('spinning');
-  await syncPull();
+  await syncPull(true); // force = sempre aceita dados do Sheets
   if (btn) btn.classList.remove('spinning');
 }
 
 // ─── Sync: pull (Sheets → dashboard) ─────────────────────────────────────────
-async function syncPull() {
+async function syncPull(force) {
   if (!SYNC_URL) return;
   setSyncStatus('syncing');
   try {
@@ -1505,7 +1506,7 @@ async function syncPull() {
     if (data.error) throw new Error(data.error);
 
     var changed = false;
-    if (Array.isArray(data.txs) && data.txs.length >= txs.length) {
+    if (Array.isArray(data.txs) && (force || data.txs.length >= txs.length)) {
       txs = data.txs;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
       changed = true;
@@ -1535,12 +1536,27 @@ async function syncPull() {
 
 // ─── Indicador visual de status ──────────────────────────────────────────────
 function setSyncStatus(status) {
+  // dot na sidebar
   var el = document.getElementById('syncStatusDot');
-  if (!el) return;
-  el.style.display = 'inline-block';
-  el.className = 'sync-dot sync-' + status;
-  var labels = { ok: 'Sincronizado com Google Sheets ✓', syncing: 'Sincronizando…', error: 'Erro de sincronização — dados locais preservados' };
-  el.title = labels[status] || status;
+  if (el) {
+    el.style.display = 'inline-block';
+    el.className = 'sync-dot sync-' + status;
+  }
+  // dot no botão Atualizar (visível no topbar / mobile)
+  var dot2 = document.getElementById('syncTopbarDot');
+  if (dot2) {
+    dot2.style.display = 'inline-block';
+    dot2.className = 'sync-dot sync-' + status;
+  }
+  // label do botão
+  var lbl = document.getElementById('syncRefreshLabel');
+  var icon = document.getElementById('syncRefreshIcon');
+  var labels = { ok: 'Atualizar', syncing: 'Sincronizando…', error: 'Tentar novamente' };
+  if (lbl) lbl.textContent = labels[status] || 'Atualizar';
+  if (icon) icon.style.display = status === 'syncing' ? 'none' : '';
+  // tooltip
+  var title = { ok: 'Sincronizado ✓', syncing: 'Sincronizando…', error: 'Erro — clique para tentar novamente' };
+  if (el) el.title = title[status] || status;
 }
 
 let txs = load();
