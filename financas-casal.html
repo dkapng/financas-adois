@@ -260,18 +260,30 @@
   .tx-list-header{ padding:14px 16px 0; display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; }
   .tx-search{ flex:1; min-width:140px; padding:7px 10px; border:1px solid var(--border); border-radius:8px; font-size:13px; background:var(--bg); color:var(--ink); }
   .tx-search:focus{ outline:none; border-color:var(--accent); }
-  .tx-filters{ display:flex; flex-wrap:wrap; gap:6px; }
-  .tx-chip{ padding:4px 11px; border-radius:20px; font-size:11px; font-weight:700; border:1.5px solid var(--border); background:var(--bg); color:var(--ink-soft); cursor:pointer; transition:all .15s; letter-spacing:.3px; }
-  .tx-chip:hover{ border-color:var(--accent); color:var(--ink); }
-  .tx-chip.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .tx-filters{ display:flex; flex-wrap:wrap; align-items:center; gap:5px; }
+  .tx-filters-sep{ width:1px; height:18px; background:var(--border); margin:0 4px; flex-shrink:0; }
+  .tx-chip{ display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:20px; font-size:11.5px; font-weight:700; border:1.5px solid var(--border); background:var(--bg); color:var(--ink-soft); cursor:pointer; transition:all .15s; letter-spacing:.2px; }
+  .tx-chip:hover{ border-color:var(--accent); color:var(--ink); background:var(--surface); }
+  .tx-chip.active{ border-color:var(--accent); color:#fff; background:var(--accent); }
   .tx-chip.chip-entrada.active{ background:var(--accent); border-color:var(--accent); }
   .tx-chip.chip-fixo.active{ background:#6c5ce7; border-color:#6c5ce7; }
   .tx-chip.chip-variavel.active{ background:#e0962f; border-color:#e0962f; }
-  .tx-chip.chip-black.active{ background:#2d3748; border-color:#2d3748; }
-  .tx-chip.chip-prime.active{ background:#6c5ce7; border-color:#6c5ce7; }
-  .tx-chip.chip-basic.active{ background:#3b82c4; border-color:#3b82c4; }
-  .tx-chip.chip-caju.active{ background:#00b894; border-color:#00b894; }
+  /* Cartões: dot colorido sempre visível */
+  .tx-chip-dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .tx-chip.chip-black .tx-chip-dot{ background:#2d3748; }
+  .tx-chip.chip-prime .tx-chip-dot{ background:#6c5ce7; }
+  .tx-chip.chip-basic .tx-chip-dot{ background:#3b82c4; }
+  .tx-chip.chip-caju  .tx-chip-dot{ background:#00b894; }
+  .tx-chip.chip-black.active{ background:#2d3748; border-color:#2d3748; color:#fff; }
+  .tx-chip.chip-prime.active{ background:#6c5ce7; border-color:#6c5ce7; color:#fff; }
+  .tx-chip.chip-basic.active{ background:#3b82c4; border-color:#3b82c4; color:#fff; }
+  .tx-chip.chip-caju.active{ background:#00b894; border-color:#00b894; color:#fff; }
   .tx-chip.chip-pix.active{ background:#e0962f; border-color:#e0962f; }
+  /* Chip ativo apaga o dot (texto já tem cor suficiente) */
+  .tx-chip.active .tx-chip-dot{ display:none; }
+  /* Valor total dentro do chip */
+  .tx-chip-val{ font-size:10px; font-weight:600; opacity:.75; margin-left:3px; }
+  .tx-chip-val:empty{ display:none; }
   .tx-unified-table{ width:100%; border-collapse:collapse; font-size:13px; }
   .tx-unified-table thead th{ padding:8px 12px; text-align:left; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-soft); border-bottom:1px solid var(--border); white-space:nowrap; }
   .tx-unified-table tbody tr{ border-bottom:1px solid var(--border); transition:background .1s; }
@@ -309,6 +321,7 @@
   .gantt-total-col{ padding:4px 4px 4px 8px; white-space:nowrap; vertical-align:middle; font-size:12px; color:var(--ink); }
 
   .projection-banner{ display:flex; align-items:center; gap:10px; background: linear-gradient(135deg, rgba(108,92,231,0.1), rgba(24,165,88,0.08)); border:1px solid var(--violet); border-radius: var(--radius); padding:12px 16px; margin: 18px 32px 0; font-size:12.5px; color: var(--ink-soft); }
+  .projection-banner[hidden]{ display:none; }
   .projection-banner .badge{ display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; background: var(--violet); color:#fff; font-size:13px; flex-shrink:0; }
   .projection-banner strong{ color: var(--ink); font-family:'Sora',sans-serif; }
   .overdue-banner{ background: linear-gradient(135deg, rgba(225,72,63,0.12), rgba(225,72,63,0.05)); border-color: var(--rose); }
@@ -908,7 +921,6 @@
       <nav class="tabs">
         <button class="tab-btn active" data-tab="grafico" onclick="switchTab('grafico')">Painel</button>
         <button class="tab-btn" data-tab="transacoes" onclick="switchTab('transacoes')">Transações</button>
-        <button class="tab-btn" data-tab="conciliar" onclick="switchTab('conciliar')">Conciliar Nubank</button>
       </nav>
     </header>
 
@@ -1087,10 +1099,8 @@
                     <label for="desForma">Forma de pagamento</label>
                     <select id="desForma">
                       <option value="pix">Pix / boleto</option>
-                      <option value="caju">Vale Caju</option>
                       <option value="black">Cartão Black</option>
                       <option value="prime">Cartão Prime</option>
-                      <option value="basic">Cartão Basic (Inter)</option>
                     </select>
                   </div>
                   <div class="field">
@@ -1137,15 +1147,13 @@
               <input type="text" class="tx-search" id="txSearch" placeholder="Buscar lançamento..." oninput="renderTxUnificada()">
               <span class="tx-count-badge" id="txCountBadge"></span>
               <div class="tx-filters" id="txFilters">
-                <button class="tx-chip active" data-filter="todos" onclick="txSetFilter(this)">Todos</button>
-                <button class="tx-chip chip-entrada" data-filter="entrada" onclick="txSetFilter(this)">Receitas</button>
-                <button class="tx-chip chip-fixo" data-filter="fixo" onclick="txSetFilter(this)">Fixos</button>
-                <button class="tx-chip chip-variavel" data-filter="variavel" onclick="txSetFilter(this)">Variáveis</button>
-                <button class="tx-chip chip-black" data-filter="black" onclick="txSetFilter(this)">Black</button>
-                <button class="tx-chip chip-prime" data-filter="prime" onclick="txSetFilter(this)">Prime</button>
-                <button class="tx-chip chip-basic" data-filter="basic" onclick="txSetFilter(this)">Basic</button>
-                <button class="tx-chip chip-caju" data-filter="caju" onclick="txSetFilter(this)">Caju</button>
-                <button class="tx-chip chip-pix" data-filter="pix" onclick="txSetFilter(this)">Pix</button>
+                <button class="tx-chip active" data-filter="todos" onclick="txSetFilter(this)">Todos<span class="tx-chip-val" id="chipValTodos"></span></button>
+                <button class="tx-chip chip-entrada" data-filter="entrada" onclick="txSetFilter(this)">Receitas<span class="tx-chip-val" id="chipValEntrada"></span></button>
+                <button class="tx-chip chip-fixo" data-filter="fixo" onclick="txSetFilter(this)">Fixos<span class="tx-chip-val" id="chipValFixo"></span></button>
+                <button class="tx-chip chip-variavel" data-filter="variavel" onclick="txSetFilter(this)">Variáveis<span class="tx-chip-val" id="chipValVariavel"></span></button>
+                <span class="tx-filters-sep"></span>
+                <button class="tx-chip chip-black" data-filter="black" onclick="txSetFilter(this)"><span class="tx-chip-dot"></span>Black<span class="tx-chip-val" id="chipValBlack"></span></button>
+                <button class="tx-chip chip-prime" data-filter="prime" onclick="txSetFilter(this)"><span class="tx-chip-dot"></span>Prime<span class="tx-chip-val" id="chipValPrime"></span></button>
               </div>
             </div>
             <table class="tx-unified-table">
@@ -1258,19 +1266,6 @@
       </section>
 
       <!-- ===== Conciliação Nubank ===== -->
-      <section class="panel" data-panel="conciliar">
-        <h3 class="section-title">Conciliação Nubank <span class="tag">extrato vs. dashboard</span></h3>
-        <p style="color:var(--ink-soft);font-size:13px;margin:0 0 20px;">
-          Importe o CSV da NuConta para ver o que está faltando no dashboard. Aplicações/resgates RDB e pagamentos de fatura são ignorados automaticamente.
-        </p>
-        <label class="conc-upload-area" for="concCsvInput">
-          <div class="conc-upload-icon">📂</div>
-          <h4>Selecionar extrato Nubank (.csv)</h4>
-          <p>Exporte pelo app do Nubank: Extrato → ⋯ → Exportar extrato</p>
-          <input type="file" id="concCsvInput" accept=".csv" hidden>
-        </label>
-        <div id="concResultArea" style="display:none; margin-top:28px;"></div>
-      </section>
 
     </main>
   </div>
@@ -1315,8 +1310,8 @@ const SYNC_INTERVAL_MS = 5 * 60 * 1000; // pull automático a cada 5 minutos
 let _syncPushTimer = null;
 let _syncBusy = false;
 
-const METHOD_LABEL = { pix: 'Pix / boleto', caju: 'Vale Caju', black: 'Black (Alyson)', prime: 'Prime (Tania)', basic: 'Basic (Inter)' };
-const METHOD_PILL  = { pix: 'pix', caju: 'caju', black: 'black', prime: 'prime', basic: 'basic' };
+const METHOD_LABEL = { pix: 'Pix / boleto', black: 'Black (Alyson)', prime: 'Prime (Tania)' };
+const METHOD_PILL  = { pix: 'pix', black: 'black', prime: 'prime' };
 const SUBCATEGORY_LABEL = {
   casa: 'Casa', mercado: 'Mercado', lanche: 'Lanche', transporte: 'Transporte',
   saude: 'Saúde', educacao: 'Educação', lazer: 'Lazer', compras: 'Compras',
@@ -1336,7 +1331,7 @@ function seed(){
   // Entradas — datas a partir dos dias informados (mês de referência: julho/2026)
   list.push(mk('Salário Andressa', 'Recebe dia 5', 5500.00, 'pix', 'entrada', '2026-07-05', 'salario'));
   list.push(mk('Salário Alice', 'Recebe dia 5', 1500.00, 'pix', 'entrada', '2026-07-05', 'salario'));
-  list.push(mk('GMdB', 'Recebe dia 20', 960.00, 'pix', 'entrada', '2026-07-20', 'salario'));
+  list.push(mk('GMdB', 'Recebe dia 20', 1700.00, 'pix', 'entrada', '2026-07-20', 'salario'));
   list.push(mk('Salário Alice', 'Recebe dia 20', 1000.00, 'pix', 'entrada', '2026-07-20', 'salario'));
   list.push(mk('Auxílio alimentação (Caju)', 'Benefício mensal', 450.00, 'pix', 'entrada', '2026-07-09', 'salario'));
 
@@ -1389,7 +1384,7 @@ function seed(){
   // ===== Junho/2026 =====
   list.push(mk('Salário Andressa', 'Recebe dia 5', 4500.00, 'pix', 'entrada', '2026-06-05', 'salario'));
   list.push(mk('Salário Alice', 'Recebe dia 5', 1500.00, 'pix', 'entrada', '2026-06-05', 'salario'));
-  list.push(mk('GMdB', 'Recebe dia 20', 960.00, 'pix', 'entrada', '2026-06-20', 'salario'));
+  list.push(mk('GMdB', 'Recebe dia 20', 1700.00, 'pix', 'entrada', '2026-06-20', 'salario'));
   list.push(mk('Salário Alice', 'Recebe dia 20', 1000.00, 'pix', 'entrada', '2026-06-20', 'salario'));
   list.push(mk('Auxílio alimentação (Caju)', 'Benefício mensal', 450.00, 'pix', 'entrada', '2026-06-09', 'salario'));
 
@@ -1957,8 +1952,8 @@ function renderGanttParcelas(){
 
   const hoje = new Date();
   const mesHoje = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
-  const COLORS = { prime: '#6c5ce7', black: '#4a4f5c', pix: '#00b894', caju: '#e17055', basic: '#0984e3' };
-  const LABELS = { prime: 'Prime · Tania', black: 'Black · Alyson', pix: 'Pix/Boleto', caju: 'Caju', basic: 'Basic · Inter' };
+  const COLORS = { prime: '#6c5ce7', black: '#4a4f5c', pix: '#00b894' };
+  const LABELS = { prime: 'Prime · Tania', black: 'Black · Alyson', pix: 'Pix/Boleto' };
 
   // Agrupa parcelas por série: usa parseInstallment(t.obs) — padrão unificado "X/Y"
   const groups = {};
@@ -2394,11 +2389,9 @@ function renderTxUnificada() {
     // filtro por chip
     if (_txFilter === 'entrada')  { if (t.tipo !== 'entrada') return false; }
     else if (_txFilter === 'fixo') { if (t.tipo !== 'fixo') return false; }
-    else if (_txFilter === 'variavel') { if (t.tipo !== 'variavel') return false; }
+    else if (_txFilter === 'variavel') { if (t.tipo !== 'variavel' || ['black','prime'].indexOf(t.forma) !== -1) return false; }
     else if (_txFilter === 'black')  { if (t.forma !== 'black'  || t.tipo === 'entrada') return false; }
     else if (_txFilter === 'prime')  { if (t.forma !== 'prime'  || t.tipo === 'entrada') return false; }
-    else if (_txFilter === 'basic')  { if (t.forma !== 'basic'  || t.tipo === 'entrada') return false; }
-    else if (_txFilter === 'caju')   { if (t.forma !== 'caju'   || t.tipo === 'entrada') return false; }
     else if (_txFilter === 'pix')    { if (t.forma !== 'pix'    || t.tipo === 'entrada') return false; }
     // busca texto
     if (sq) {
@@ -2507,11 +2500,9 @@ function renderBento(data) {
   if (chipsEl) {
     var CLIM = (function(){ try{ return JSON.parse(localStorage.getItem('financas-casal-card-limits')||'{}'); }catch(e){ return {}; } })();
     var cds = [
-      { key:'black', name:'Black',       grad:'linear-gradient(135deg,#2d3748,#1a202c)' },
-      { key:'prime', name:'Prime',       grad:'linear-gradient(135deg,#6c5ce7,#4834d4)' },
-      { key:'basic', name:'Basic·Inter', grad:'linear-gradient(135deg,#3b82c4,#1d4ed8)' },
-      { key:'caju',  name:'Vale Caju',   grad:'linear-gradient(135deg,#00b894,#007a63)' },
-      { key:'pix',   name:'Pix/Boleto',  grad:'linear-gradient(135deg,#e0962f,#c47a1a)' }
+      { key:'black', name:'Black',      grad:'linear-gradient(135deg,#2d3748,#1a202c)' },
+      { key:'prime', name:'Prime',      grad:'linear-gradient(135deg,#6c5ce7,#4834d4)' },
+      { key:'pix',   name:'Pix/Boleto', grad:'linear-gradient(135deg,#e0962f,#c47a1a)' }
     ];
     chipsEl.innerHTML = cds.map(function(c) {
       var isPix = c.key === 'pix';
@@ -2540,7 +2531,7 @@ function renderBento(data) {
     var endS = end30.toISOString().slice(0,10);
     var evMap = {};
     var dueFull = [];
-    var CC = { prime:'#6c5ce7', black:'#2d3748', basic:'#3b82c4', caju:'#00b894', pix:'#e0962f' };
+    var CC = { prime:'#6c5ce7', black:'#2d3748', pix:'#e0962f' };
 
     function addEv(ds, t) {
       if (ds >= todayS && ds <= endS) {
@@ -2705,9 +2696,7 @@ function renderNovoGrafico(data) {
     var CARD_LIMITS = (function() { try { return JSON.parse(localStorage.getItem('financas-casal-card-limits') || '{}'); } catch(e) { return {}; } })();
     var cards = [
       { key: 'black', name: 'Black · Alyson', grad: 'linear-gradient(135deg,#2d3748,#1a202c)' },
-      { key: 'prime', name: 'Prime · Tania',  grad: 'linear-gradient(135deg,#6c5ce7,#4834d4)' },
-      { key: 'basic', name: 'Basic · Inter',  grad: 'linear-gradient(135deg,#3b82c4,#1d4ed8)' },
-      { key: 'caju',  name: 'Vale Caju',      grad: 'linear-gradient(135deg,#00b894,#007a63)' }
+      { key: 'prime', name: 'Prime · Tania',  grad: 'linear-gradient(135deg,#6c5ce7,#4834d4)' }
     ];
     cardsEl.innerHTML = cards.map(function(card) {
       var total = sumBy(visible, function(t) { return t.forma === card.key && t.tipo !== 'entrada'; });
@@ -2763,7 +2752,7 @@ function renderNovoGrafico(data) {
     var endDate = new Date(now); endDate.setDate(endDate.getDate() + 30);
     var endStr = endDate.toISOString().slice(0, 10);
     var events = {};
-    var CARD_CLR = { prime: '#6c5ce7', black: '#2d3748', basic: '#3b82c4', caju: '#00b894', pix: '#e0962f' };
+    var CARD_CLR = { prime: '#6c5ce7', black: '#2d3748', pix: '#e0962f' };
 
     function addEvent(ds, t) {
       if (ds >= todayStr && ds <= endStr) {
@@ -2898,15 +2887,12 @@ function render(){
   const variaveisPix = visible.filter(t=>t.tipo==='variavel' && t.forma==='pix');
   const black  = visible.filter(t=>t.forma==='black');
   const prime  = visible.filter(t=>t.forma==='prime');
-  const basic  = visible.filter(t=>t.forma==='basic');
-  const caju   = visible.filter(t=>t.forma==='caju' && t.tipo!=='entrada');
-
   const totalEntradas  = sumBy(visible, t=>t.tipo==='entrada');
   const totalFixos     = sumBy(visible, t=>t.tipo==='fixo');
   const totalVariaveis = sumBy(visible, t=>t.tipo==='variavel');
   const totalSaidas    = totalFixos + totalVariaveis;
   const saldo          = totalEntradas - totalSaidas;
-  const totalCartoes   = sumBy(visible, t=>['black','prime','basic'].includes(t.forma) && t.tipo!=='entrada');
+  const totalCartoes   = sumBy(visible, t=>['black','prime'].includes(t.forma) && t.tipo!=='entrada');
 
   const saldoClass = saldo >= 0 ? 'positive' : 'negative';
   const saldoFlag  = saldo >= 0
@@ -2961,7 +2947,7 @@ function render(){
     <div class="stat in"><div class="label">Entradas</div><div class="value">${fmt(totalEntradas)}</div><div class="sub">${entradas.length} lançamento(s)</div></div>
     <div class="stat out"><div class="label">Gastos fixos</div><div class="value">${fmt(totalFixos)}</div><div class="sub">${fixos.length} contas no período</div></div>
     <div class="stat out"><div class="label">Gastos variáveis</div><div class="value">${fmt(totalVariaveis)}</div><div class="sub">${variaveis.length} compras / saídas</div></div>
-    <div class="stat out"><div class="label">Cartões + vale</div><div class="value">${fmt(totalCartoes + sumBy(visible, t=>t.forma==='caju' && t.tipo!=='entrada'))}</div><div class="sub">Black + Prime + Basic + Caju</div></div>
+    <div class="stat out"><div class="label">Cartões</div><div class="value">${fmt(totalCartoes)}</div><div class="sub">Black + Prime</div></div>
     <div class="stat balance ${saldoClass}"><div class="label">Saldo do período ${saldoFlag}</div><div class="value">${fmt(saldo)}</div><div class="sub">${saldoNote}</div></div>
   `;
 
@@ -2977,8 +2963,6 @@ function render(){
   document.getElementById('totalVariaveis').textContent = fmt(totalVariaveisPix);
   document.getElementById('totalBlack').textContent     = fmt(sumBy(visible, t=>t.forma==='black' && t.tipo!=='entrada'));
   document.getElementById('totalPrime').textContent     = fmt(sumBy(visible, t=>t.forma==='prime' && t.tipo!=='entrada'));
-  document.getElementById('totalBasic').textContent     = fmt(sumBy(visible, t=>t.forma==='basic' && t.tipo!=='entrada'));
-  document.getElementById('totalCaju').textContent      = fmt(sumBy(visible, t=>t.forma==='caju' && t.tipo!=='entrada'));
   renderLimites(visible);
   renderGestaoCartao(visible);
 
@@ -2989,8 +2973,6 @@ function render(){
   document.getElementById('bodyBlack').innerHTML = black.length ? sortByPago(black).map(t=>rowHTML(t,{progress:true, status:true})).join('') : emptyRow(5, 'Nenhum lançamento no cartão Black neste período');
   document.getElementById('bodyPrime').innerHTML = prime.length ? prime.map(t=>rowHTML(t,{progress:true, status:false})).join('') : emptyRow(4, 'Nenhum lançamento no cartão Prime neste período');
   renderPagarFaturaPrime(prime);
-  document.getElementById('bodyBasic').innerHTML = basic.length ? sortByPago(basic).map(t=>rowHTML(t,{progress:true, status:true})).join('') : emptyRow(5, 'Nenhum lançamento no cartão Basic neste período');
-  document.getElementById('bodyCaju').innerHTML  = caju.length  ? sortByPago(caju).map(t=>rowHTML(t,{progress:true, status:true})).join('')  : emptyRow(5, 'Nenhum gasto no Vale Caju neste período');
 
   renderCategoryList(categoryData);
   renderOrcamentoCategoria(visible);
@@ -3002,8 +2984,6 @@ function render(){
     totalFixos, totalVariaveis, totalEntradas, totalSaidas,
     black: sumBy(visible, t=>t.forma==='black' && t.tipo!=='entrada'),
     prime: sumBy(visible, t=>t.forma==='prime' && t.tipo!=='entrada'),
-    basic: sumBy(visible, t=>t.forma==='basic' && t.tipo!=='entrada'),
-    caju:  sumBy(visible, t=>t.forma==='caju'  && t.tipo!=='entrada'),
     pix:   sumBy(visible, t=> (t.tipo==='fixo'||t.tipo==='variavel') && t.forma==='pix')
   });
 
@@ -3012,12 +2992,32 @@ function render(){
   renderAPagar();
   _txVisible = visible.slice();
   renderTxUnificada();
+  updateChipTotals(visible);
+}
+
+function fmtShort(v) {
+  if (v >= 1000) return 'R$' + (v/1000).toFixed(1).replace('.',',') + 'k';
+  return 'R$' + v.toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+}
+
+function updateChipTotals(visible) {
+  var set = function(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = val > 0 ? fmtShort(val) : '';
+  };
+  var sumIf = function(fn) { return visible.reduce(function(s,t){ return s + (fn(t) ? Number(t.valor||0) : 0); }, 0); };
+  set('chipValTodos',   sumIf(function(t){ return t.tipo !== 'entrada'; }));
+  set('chipValEntrada', sumIf(function(t){ return t.tipo === 'entrada'; }));
+  set('chipValFixo',    sumIf(function(t){ return t.tipo === 'fixo'; }));
+  set('chipValVariavel',sumIf(function(t){ return t.tipo === 'variavel' && t.forma !== 'black' && t.forma !== 'prime'; }));
+  set('chipValBlack',   sumIf(function(t){ return t.forma === 'black' && t.tipo !== 'entrada'; }));
+  set('chipValPrime',   sumIf(function(t){ return t.forma === 'prime' && t.tipo !== 'entrada'; }));
 }
 
 // ===== A pagar este mês =====
-var CARTOES = ['black', 'prime', 'basic', 'caju'];
-var CARTAO_LABELS = { black: 'Cartão Black', prime: 'Cartão Prime', basic: 'Cartão Basic', caju: 'Vale Caju' };
-var CARTAO_CORES  = { black: '#2d3748', prime: '#6c5ce7', basic: '#3b82c4', caju: '#18a558' };
+var CARTOES = ['black', 'prime'];
+var CARTAO_LABELS = { black: 'Cartão Black', prime: 'Cartão Prime' };
+var CARTAO_CORES  = { black: '#2d3748', prime: '#6c5ce7' };
 
 function renderAPagar() {
   var hoje    = new Date();
@@ -3140,9 +3140,7 @@ function renderCharts(d){
     fixo: '#e1483f',
     pix: '#18a558',
     black: '#6b7385',
-    prime: '#6c5ce7',
-    basic: '#3b82c4',
-    caju: '#e0962f'
+    prime: '#6c5ce7'
   };
 
   const distData = [
@@ -3150,8 +3148,6 @@ function renderCharts(d){
     { label: 'Pix / boleto (variável)', value: d.pix, color: palette.pix },
     { label: 'Cartão Black', value: d.black, color: palette.black },
     { label: 'Cartão Prime', value: d.prime, color: palette.prime },
-    { label: 'Cartão Basic', value: d.basic, color: palette.basic },
-    { label: 'Vale Caju', value: d.caju, color: palette.caju },
   ].filter(x => x.value > 0);
 
   if(distChart) distChart.destroy();
@@ -3252,8 +3248,6 @@ function salvarLimites(){
 const LIMITE_CARD = {
   black: { id: 'limiteBlack', label: 'BLACK · Alyson', forma: 'black' },
   prime: { id: 'limitePrime', label: 'PRIME · Tania',  forma: 'prime' },
-  basic: { id: 'limiteBasic', label: 'BASIC · Inter',  forma: 'basic' },
-  caju:  { id: 'limiteCaju',  label: 'VALE · Caju',    forma: 'caju'  },
 };
 
 window.editarLimite = function(chave){
@@ -3321,11 +3315,9 @@ let vencimentosCartao = { prime: 10 };
 try { vencimentosCartao = Object.assign({ prime: 10 }, JSON.parse(localStorage.getItem(VENCIMENTO_CARTAO_KEY)) || {}); } catch(e){}
 function salvarVencimentosCartao(){ localStorage.setItem(VENCIMENTO_CARTAO_KEY, JSON.stringify(vencimentosCartao)); }
 
-// cartões de crédito de verdade (a Caju é vale-refeição, não entra aqui)
 const GESTAO_CARTAO = {
   black: { id: 'gestaoBlack', label: 'BLACK · Alyson', forma: 'black' },
   prime: { id: 'gestaoPrime', label: 'PRIME · Tania',  forma: 'prime' },
-  basic: { id: 'gestaoBasic', label: 'BASIC · Inter',  forma: 'basic' },
 };
 
 window.editarLimiteCartao = function(chave){
@@ -3700,7 +3692,7 @@ try { cardPmtNames = Object.assign({ prime: 'TANIA', black: 'ALYSON' }, JSON.par
 function salvarCardPmtNames(){ localStorage.setItem(CARD_PMT_KEY, JSON.stringify(cardPmtNames)); }
 
 window.configurarNomesCartao = function(){
-  const formas = [ {key:'prime', label:'Prime (Tania)'}, {key:'black', label:'Black (Alyson)'}, {key:'basic', label:'Basic (Inter)'} ];
+  const formas = [ {key:'prime', label:'Prime (Tania)'}, {key:'black', label:'Black (Alyson)'} ];
   formas.forEach(f => {
     const atual = cardPmtNames[f.key] || '';
     const resp = prompt('Nome que aparece na transferência de pagamento do cartão ' + f.label + '\n(deixe vazio para não detectar):', atual);
@@ -3732,7 +3724,7 @@ function processarConciliacao(csvText){
   // detect card payment transfers (Pix para titular do cartão)
   const cardPmtBankIds = new Set();
   const cardPayments = [];
-  ['prime','black','basic'].forEach(forma => {
+  ['prime','black'].forEach(forma => {
     const nome = cardPmtNames[forma];
     if(!nome) return;
     const re = new RegExp(nome.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'i');
@@ -5136,12 +5128,6 @@ window.switchTab = function(id){
       <rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/>
     </svg>
     Transações
-  </button>
-  <button class="mobile-nav-btn" data-tab="conciliar" onclick="switchTab('conciliar')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-    </svg>
-    Conciliar
   </button>
   <button class="mobile-nav-btn" onclick="toggleMobileSidebar()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg">
