@@ -1375,7 +1375,7 @@
 <footer>feito com cuidado para organizar a vida financeira de <span>vocês dois</span></footer>
 
 <script>
-const STORAGE_KEY = 'financas-casal-v20';
+const STORAGE_KEY = 'financas-casal-v21';
 
 // ===== Sincronização com Google Sheets =====
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbz7mtFep13Gst9J4lYNFMu0c57KNlplmfpongiKB_vIalyLl7GUvd71zbdJ4gCfHkNG7g/exec';
@@ -1677,8 +1677,8 @@ async function syncPush() {
     await _sendField('metas',  JSON.stringify(metas));
     await _sendField('config', JSON.stringify({ budgetLimit: budgetLimit, cardLimits: cardLimits }));
 
-    // Aguarda o servidor montar os chunks e verifica se gravou
-    await new Promise(function(r){ setTimeout(r, 2000); });
+    // Aguarda o servidor montar os chunks e verifica se gravou (3s para redes lentas)
+    await new Promise(function(r){ setTimeout(r, 3000); });
     var verRes  = await fetch(SYNC_URL + '?t=' + Date.now());
     var verData = await verRes.json();
     if (!Array.isArray(verData.txs) || verData.txs.length < Math.floor(txsLean.length * 0.8)) {
@@ -1696,15 +1696,21 @@ async function syncPush() {
 
 // ─── Forçar pull manualmente (botão Atualizar) ───────────────────────────────
 async function forceSyncPull() {
+  // Aguarda push em andamento antes de puxar (evita ler dados parciais do Sheets)
+  if (_syncBusy) {
+    await new Promise(function(r){ var t = setInterval(function(){ if(!_syncBusy){ clearInterval(t); r(); } }, 200); });
+  }
   var btn = document.getElementById('syncRefreshBtn');
   if (btn) btn.classList.add('spinning');
-  await syncPull(true); // force = sempre aceita dados do Sheets
+  await syncPull(true);
   if (btn) btn.classList.remove('spinning');
 }
 
 // ─── Sync: pull (Sheets → dashboard) ─────────────────────────────────────────
 async function syncPull(force) {
   if (!SYNC_URL) return;
+  // Não puxa enquanto push está em andamento (dados do Sheets podem estar incompletos)
+  if (_syncBusy) return;
   setSyncStatus('syncing');
   try {
     var res  = await fetch(SYNC_URL + '?t=' + Date.now());
@@ -1713,21 +1719,27 @@ async function syncPull(force) {
 
     var changed = false;
     if (Array.isArray(data.txs) && data.txs.length > 0) {
-      // Merge por ID: atualiza campos das txs que existem no Sheets,
-      // mantém txs locais que não estão no Sheets (adicionadas só neste device),
-      // e adiciona txs do Sheets que não existem localmente (adicionadas em outro device).
-      var sheetsMap = {};
-      data.txs.forEach(function(t){ sheetsMap[t.id] = t; });
+      if (_seededFresh) {
+        // Device sem dados locais: adota os IDs do Sheets como verdade
+        // para evitar duplicação (seed gera UUIDs novos a cada execução)
+        txs = data.txs;
+        _seededFresh = false;
+      } else {
+        // Merge por ID: atualiza campos das txs que existem no Sheets,
+        // mantém txs locais que não estão no Sheets (adicionadas só neste device),
+        // e adiciona txs do Sheets que não existem localmente (adicionadas em outro device).
+        var sheetsMap = {};
+        data.txs.forEach(function(t){ sheetsMap[t.id] = t; });
 
-      var localIds = {};
-      txs = txs.map(function(t){
-        localIds[t.id] = true;
-        return sheetsMap[t.id] ? Object.assign({}, t, sheetsMap[t.id]) : t;
-      });
-      data.txs.forEach(function(t){
-        if (!localIds[t.id]) txs.push(t);
-      });
-
+        var localIds = {};
+        txs = txs.map(function(t){
+          localIds[t.id] = true;
+          return sheetsMap[t.id] ? Object.assign({}, t, sheetsMap[t.id]) : t;
+        });
+        data.txs.forEach(function(t){
+          if (!localIds[t.id]) txs.push(t);
+        });
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
       changed = true;
     }
@@ -1738,13 +1750,21 @@ async function syncPull(force) {
     }
     if (data.config) {
       if (data.config.budgetLimit != null) {
-        budgetLimit = Number(data.config.budgetLimit);
-        localStorage.setItem(BUDGET_KEY, String(budgetLimit));
+        var newBudget = Number(data.config.budgetLimit);
+        if (newBudget !== budgetLimit) {
+          budgetLimit = newBudget;
+          localStorage.setItem(BUDGET_KEY, String(budgetLimit));
+          changed = true;
+        }
       }
       if (data.config.cardLimits) {
-        localStorage.setItem('financas-casal-card-limits', JSON.stringify(data.config.cardLimits));
+        var newLimits = JSON.stringify(data.config.cardLimits);
+        var curLimits = localStorage.getItem('financas-casal-card-limits') || '{}';
+        if (newLimits !== curLimits) {
+          localStorage.setItem('financas-casal-card-limits', newLimits);
+          changed = true;
+        }
       }
-      changed = true;
     }
     if (changed) render();
     setSyncStatus('ok');
