@@ -1310,7 +1310,7 @@ const STORAGE_KEY = 'financas-casal-v2';
 
 // ===== Sincronização com Google Sheets =====
 // Cole aqui a URL do seu Google Apps Script após o deploy:
-const SYNC_URL = 'https://script.google.com/macros/s/AKfycbzAsXnpY6b5SK-CKpisLohmFiTYzjrfkjCwQLLv8-SQ4wymb1ceVrs5wHmbfnSHNQpqBA/exec';
+const SYNC_URL = 'https://script.google.com/macros/s/AKfycbz7mtFep13Gst9J4lYNFMu0c57KNlplmfpongiKB_vIalyLl7GUvd71zbdJ4gCfHkNG7g/exec';
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // pull automático a cada 5 minutos
 let _syncPushTimer = null;
 let _syncBusy = false;
@@ -1457,12 +1457,13 @@ function _chunkString(str, size) {
 }
 
 async function _sendField(field, jsonStr) {
-  var chunks = _chunkString(jsonStr, 3500);
+  var chunks = _chunkString(jsonStr, 1200);
   for (var i = 0; i < chunks.length; i++) {
-    if (i > 0) await new Promise(function(r){ setTimeout(r, 350); });
+    if (i > 0) await new Promise(function(r){ setTimeout(r, 200); });
     var params = new URLSearchParams({ action: 'chunk', field: field, i: i, n: chunks.length, d: chunks[i] });
-    // no-cors contorna o bloqueio CORS do redirect do Google; o servidor recebe o chunk normalmente
-    await fetch(SYNC_URL + '?' + params.toString(), { mode: 'no-cors' });
+    var res  = await fetch(SYNC_URL + '?' + params.toString());
+    var data = await res.json();
+    if (data.error) throw new Error(data.error);
   }
 }
 
@@ -1474,8 +1475,13 @@ async function syncPush() {
     var cardLimits = {};
     try { cardLimits = JSON.parse(localStorage.getItem('financas-casal-card-limits') || '{}'); } catch(e) {}
 
-    // Enxuga o payload removendo campos vazios para reduzir tamanho
-    var txsLean = txs.map(function(t){
+    // Só sincroniza até o mês atual — meses futuros são regenerados no carregamento
+    var hoje = new Date();
+    var mesAtual = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0');
+    var txsSync = txs.filter(function(t){ return !t.data || t.data.slice(0,7) <= mesAtual; });
+
+    // Enxuga campos vazios para reduzir payload
+    var txsLean = txsSync.map(function(t){
       var o = { id: t.id, desc: t.desc, valor: t.valor, tipo: t.tipo, forma: t.forma, data: t.data, pago: t.pago };
       if (t.obs)          o.obs          = t.obs;
       if (t.subcategoria) o.subcategoria = t.subcategoria;
@@ -1485,6 +1491,7 @@ async function syncPush() {
       if (t.parcelaAtual) o.parcelaAtual = t.parcelaAtual;
       return o;
     });
+    console.log('[sync] enviando', txsLean.length, 'de', txs.length, 'transações (excluindo meses futuros)');
     await _sendField('txs',    JSON.stringify(txsLean));
     await _sendField('metas',  JSON.stringify(metas));
     await _sendField('config', JSON.stringify({ budgetLimit: budgetLimit, cardLimits: cardLimits }));
