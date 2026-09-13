@@ -214,12 +214,22 @@
   .forecast-note{ color:var(--ink-soft); font-size:12px; margin: 0 0 16px; }
 
   /* ===== Sync status dot ===== */
-  .sync-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-left:6px; vertical-align:middle; cursor:default; transition:background .3s; }
+  .sync-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-left:6px; vertical-align:middle; cursor:pointer; transition:background .3s; }
   .sync-ok      { background:#18a558; }
   .sync-syncing { background:#e0962f; animation:pulse-sync .8s infinite alternate; }
   .sync-error   { background:#e1483f; }
   @keyframes pulse-sync{ from{ opacity:.5; } to{ opacity:1; } }
   .sync-label{ font-size:10px; color:var(--ink-soft); margin-left:4px; vertical-align:middle; }
+  .sync-refresh-btn{
+    display:flex; align-items:center; gap:5px;
+    background:var(--surface); border:1px solid var(--border); border-radius:9px;
+    padding:7px 12px; font-size:12px; font-weight:700; color:var(--ink-soft);
+    cursor:pointer; font-family:'Manrope',sans-serif; transition:color .15s, border-color .15s;
+  }
+  .sync-refresh-btn:hover{ color:var(--violet); border-color:var(--violet); }
+  .sync-refresh-btn svg{ width:14px; height:14px; flex-shrink:0; }
+  .sync-refresh-btn.spinning svg{ animation: spin-icon .7s linear infinite; }
+  @keyframes spin-icon{ to{ transform: rotate(360deg); } }
 
   /* ===== Layout 2 colunas — Transações ===== */
   .tx-layout{ display:grid; grid-template-columns:320px 1fr; gap:16px; align-items:start; }
@@ -571,6 +581,23 @@
   .bento-section-lbl{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-faint); font-weight:700; margin-bottom:12px; }
   .bento-tag3{ font-size:10px; background:var(--bg); border:1px solid var(--border); border-radius:5px; padding:1px 7px; color:var(--ink-soft); margin-left:6px; vertical-align:middle; text-transform:none; letter-spacing:0; }
 
+  /* A pagar este mês */
+  .apagar-total-row{ display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
+  .apagar-total-val{ font-family:'Sora',sans-serif; font-size:24px; font-weight:700; }
+  .apagar-total-label{ font-size:12px; color:var(--ink-soft); }
+  .apagar-list{ display:flex; flex-direction:column; gap:6px; }
+  .apagar-item{ display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--bg); border-radius:10px; border:1px solid var(--border); transition:border-color .15s; }
+  .apagar-item.atrasado{ border-color:var(--rose); background:var(--rose-soft); }
+  .apagar-item.urgente{ border-color:var(--amber); background:var(--amber-soft); }
+  .apagar-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .apagar-desc{ flex:1; font-weight:600; font-size:12px; min-width:0; }
+  .apagar-tipo{ font-weight:400; color:var(--ink-soft); font-size:11px; margin-left:4px; }
+  .apagar-venc{ font-size:11px; color:var(--ink-soft); white-space:nowrap; }
+  .apagar-val{ font-family:'Sora',sans-serif; font-weight:700; font-size:13px; white-space:nowrap; }
+  .apagar-btn{ background:var(--accent); color:#fff; border:none; border-radius:7px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer; font-family:'Manrope',sans-serif; white-space:nowrap; flex-shrink:0; }
+  .apagar-btn:hover{ background:#159147; }
+  .apagar-vazia{ padding:14px; text-align:center; color:var(--accent); font-weight:600; font-size:13px; background:var(--accent-soft); border-radius:10px; }
+
   /* Card chips */
   .bento-chips{ display:flex; gap:10px; flex-wrap:wrap; }
   .bento-chip{ flex:1; min-width:120px; border-radius:10px; padding:12px 14px 10px; color:#fff; position:relative; overflow:hidden; }
@@ -731,6 +758,7 @@
     .topbar h2{ font-size: 15px; }
     .topbar-row{ margin-bottom: 8px; gap: 8px; }
     .ghost-btn{ display: none; }
+    .sync-refresh-btn{ padding: 7px 10px; font-size: 11px; }
     .primary-btn{ padding: 8px 12px; font-size: 11px; }
     .month-filter select{ padding: 7px 10px; font-size: 11px; }
 
@@ -812,7 +840,7 @@
   <aside class="sidebar">
     <div>
       <div class="sb-title">Painel financeiro
-        <span id="syncStatusDot" class="sync-dot" style="display:none" title="Sincronização"></span>
+        <span id="syncStatusDot" class="sync-dot" style="display:none" title="Clique para atualizar" onclick="forceSyncPull()"></span>
       </div>
       <h1 class="sb-brand">Ad<span>ois</span></h1>
     </div>
@@ -864,6 +892,12 @@
         <h2>Financeiro Inteligente</h2>
         <div class="topbar-actions">
           <div class="month-filter"><select id="monthSelect"></select></div>
+          <button class="sync-refresh-btn" id="syncRefreshBtn" type="button" onclick="forceSyncPull()" title="Buscar dados mais recentes da nuvem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Atualizar
+          </button>
           <button class="ghost-btn" id="exportBtn" type="button">↓ Exportar backup</button>
           <label class="ghost-btn" for="importInput">↑ Importar backup</label>
           <input type="file" id="importInput" accept="application/json" hidden>
@@ -919,6 +953,16 @@
           <div class="bento-cell bc4">
             <div class="bento-section-lbl">Cartões e vale</div>
             <div class="bento-chips" id="bentoChips"></div>
+          </div>
+
+          <!-- A pagar este mês (largura total) -->
+          <div class="bento-cell bc4">
+            <div class="bento-section-lbl">A pagar este mês <span class="bento-tag3" id="aPagarCount"></span></div>
+            <div class="apagar-total-row">
+              <span class="apagar-total-val" id="aPagarTotal">—</span>
+              <span class="apagar-total-label" id="aPagarTotalLabel"></span>
+            </div>
+            <div class="apagar-list" id="aPagarList"></div>
           </div>
 
           <!-- Calendário 30 dias (2 cols) + Categorias (2 cols) -->
@@ -1441,6 +1485,14 @@ async function syncPush() {
   } finally {
     _syncBusy = false;
   }
+}
+
+// ─── Forçar pull manualmente (botão Atualizar) ───────────────────────────────
+async function forceSyncPull() {
+  var btn = document.getElementById('syncRefreshBtn');
+  if (btn) btn.classList.add('spinning');
+  await syncPull();
+  if (btn) btn.classList.remove('spinning');
 }
 
 // ─── Sync: pull (Sheets → dashboard) ─────────────────────────────────────────
@@ -2916,8 +2968,92 @@ function render(){
 
   renderBento({ totalEntradas, totalFixos, totalVariaveis, totalSaidas, saldo, pctBudget, barTone, visible, categoryData });
   renderNovoGrafico({ totalEntradas, totalFixos, totalVariaveis, totalSaidas, saldo, pctBudget, barTone, visible });
+  renderAPagar();
   _txVisible = visible.slice();
   renderTxUnificada();
+}
+
+// ===== A pagar este mês =====
+function renderAPagar() {
+  var hoje = new Date();
+  var mesAtual = monthKey(hoje.toISOString().slice(0,10));
+  var hojeStr  = hoje.toISOString().slice(0,10);
+  var em3dias  = new Date(hoje.getTime() + 3*24*60*60*1000).toISOString().slice(0,10);
+
+  var aPagar = txs.filter(function(t){
+    if (t.pago) return false;
+    if (t.tipo === 'entrada') return false;
+    if (!t.data) return false;
+    return monthKey(t.data) === mesAtual;
+  });
+
+  // Ordena: atrasadas → urgentes (≤3 dias) → por data de referência
+  aPagar.sort(function(a, b){
+    var dA = dataReferenciaConta(a);
+    var dB = dataReferenciaConta(b);
+    return dA.localeCompare(dB);
+  });
+
+  var total = aPagar.reduce(function(s, t){ return s + t.valor; }, 0);
+
+  var countEl  = document.getElementById('aPagarCount');
+  var totalEl  = document.getElementById('aPagarTotal');
+  var labelEl  = document.getElementById('aPagarTotalLabel');
+  var listEl   = document.getElementById('aPagarList');
+  if (!listEl) return;
+
+  if (countEl) countEl.textContent = aPagar.length + ' pendente' + (aPagar.length !== 1 ? 's' : '');
+
+  if (aPagar.length === 0) {
+    if (totalEl) { totalEl.textContent = 'R$ 0,00'; totalEl.style.color = 'var(--accent)'; }
+    if (labelEl) labelEl.textContent = 'tudo pago neste mês';
+    listEl.innerHTML = '<div class="apagar-vazia">✓ Nenhuma conta pendente este mês</div>';
+    return;
+  }
+
+  if (totalEl) { totalEl.textContent = fmt(total); totalEl.style.color = 'var(--rose)'; }
+  if (labelEl) labelEl.textContent = 'restante para pagar';
+
+  var tipoLabel = function(t){
+    if (t.tipo === 'fixo') return 'Fixo';
+    if (t.forma === 'black')  return 'Black';
+    if (t.forma === 'prime')  return 'Prime';
+    if (t.forma === 'basic')  return 'Basic';
+    if (t.forma === 'caju')   return 'Caju';
+    return 'Pix';
+  };
+
+  listEl.innerHTML = aPagar.map(function(t){
+    var ref = dataReferenciaConta(t);
+    var atrasado = ref < hojeStr;
+    var urgente  = !atrasado && ref <= em3dias;
+    var cls      = atrasado ? 'atrasado' : urgente ? 'urgente' : '';
+    var dot      = atrasado ? 'var(--rose)' : urgente ? 'var(--amber)' : 'var(--violet)';
+
+    var dataLabel = '';
+    if (t.tipo === 'fixo' && t.vencimento) {
+      dataLabel = atrasado ? 'Venceu dia ' + t.vencimento : 'Vence dia ' + t.vencimento;
+    } else if (t.data) {
+      dataLabel = new Date(t.data + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'short' });
+    }
+
+    return '<div class="apagar-item ' + cls + '">' +
+      '<span class="apagar-dot" style="background:' + dot + '"></span>' +
+      '<span class="apagar-desc">' + t.desc + '<span class="apagar-tipo">' + tipoLabel(t) + '</span></span>' +
+      '<span class="apagar-venc">' + dataLabel + '</span>' +
+      '<span class="apagar-val">' + fmt(t.valor) + '</span>' +
+      '<button class="apagar-btn" onclick="pagarItem(\'' + t.id + '\')">✓ Pagar</button>' +
+    '</div>';
+  }).join('');
+}
+
+function pagarItem(id) {
+  var t = txs.find(function(tx){ return tx.id === id; });
+  if (!t) return;
+  t.pago = true;
+  save(txs);
+  render();
+  scheduleSyncPush();
 }
 
 function renderCharts(d){
