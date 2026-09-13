@@ -1412,8 +1412,9 @@ function _chunkString(str, size) {
 }
 
 async function _sendField(field, jsonStr) {
-  var chunks = _chunkString(jsonStr, 1200);
+  var chunks = _chunkString(jsonStr, 2500);
   for (var i = 0; i < chunks.length; i++) {
+    if (i > 0) await new Promise(function(r){ setTimeout(r, 80); });
     var params = new URLSearchParams({ action: 'chunk', field: field, i: i, n: chunks.length, d: chunks[i] });
     var res  = await fetch(SYNC_URL + '?' + params.toString());
     var data = await res.json();
