@@ -1383,6 +1383,7 @@ const SYNC_INTERVAL_MS = 5 * 60 * 1000; // pull automático a cada 5 minutos
 let _syncPushTimer = null;
 let _seededFresh = false; // true quando este dispositivo acabou de fazer seed (sem dados locais)
 let _syncBusy = false;
+let _pendingPush = false; // true enquanto há mudanças locais ainda não enviadas ao Sheets
 
 const METHOD_LABEL = { pix: 'Pix / boleto', black: 'Black (Alyson)', prime: 'Prime (Tania)' };
 const METHOD_PILL  = { pix: 'pix', black: 'black', prime: 'prime' };
@@ -1627,6 +1628,7 @@ function load(){
 function save(data, skipPush) {
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
   if (!skipPush && SYNC_URL) {
+    _pendingPush = true; // marca que há mudanças locais aguardando envio
     clearTimeout(_syncPushTimer);
     _syncPushTimer = setTimeout(syncPush, 1500);
   }
@@ -1685,10 +1687,13 @@ async function syncPush() {
       throw new Error('Dados não chegaram completos ao Sheets — tente novamente');
     }
 
+    _pendingPush = false; // mudanças enviadas com sucesso
     setSyncStatus('ok');
   } catch(err) {
     console.warn('[sync] push falhou:', err);
     setSyncStatus('error');
+    // _pendingPush fica true: pull automático não vai sobrescrever dados locais
+    // até o próximo push bem-sucedido ou até o usuário clicar "Atualizar"
   } finally {
     _syncBusy = false;
   }
@@ -1696,7 +1701,12 @@ async function syncPush() {
 
 // ─── Forçar pull manualmente (botão Atualizar) ───────────────────────────────
 async function forceSyncPull() {
-  // Aguarda push em andamento antes de puxar (evita ler dados parciais do Sheets)
+  // Se há mudanças locais pendentes, envia primeiro para não perder nada
+  if (_pendingPush && !_syncBusy) {
+    clearTimeout(_syncPushTimer);
+    await syncPush();
+  }
+  // Aguarda push em andamento (iniciado agora ou já estava rodando)
   if (_syncBusy) {
     await new Promise(function(r){ var t = setInterval(function(){ if(!_syncBusy){ clearInterval(t); r(); } }, 200); });
   }
@@ -1711,6 +1721,8 @@ async function syncPull(force) {
   if (!SYNC_URL) return;
   // Não puxa enquanto push está em andamento (dados do Sheets podem estar incompletos)
   if (_syncBusy) return;
+  // Não puxa se há mudanças locais ainda não enviadas (evita desfazer marcações do usuário)
+  if (_pendingPush) return;
   setSyncStatus('syncing');
   try {
     var res  = await fetch(SYNC_URL + '?t=' + Date.now());
