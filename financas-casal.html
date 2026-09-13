@@ -1457,9 +1457,10 @@ function _chunkString(str, size) {
 }
 
 async function _sendField(field, jsonStr) {
-  var chunks = _chunkString(jsonStr, 2500);
+  // Comprime removendo espaços desnecessários e encurtando UUIDs para reduzir chunks
+  var chunks = _chunkString(jsonStr, 3500);
   for (var i = 0; i < chunks.length; i++) {
-    if (i > 0) await new Promise(function(r){ setTimeout(r, 80); });
+    if (i > 0) await new Promise(function(r){ setTimeout(r, 400); });
     var params = new URLSearchParams({ action: 'chunk', field: field, i: i, n: chunks.length, d: chunks[i] });
     var res  = await fetch(SYNC_URL + '?' + params.toString());
     var data = await res.json();
@@ -1475,7 +1476,18 @@ async function syncPush() {
     var cardLimits = {};
     try { cardLimits = JSON.parse(localStorage.getItem('financas-casal-card-limits') || '{}'); } catch(e) {}
 
-    await _sendField('txs',    JSON.stringify(txs));
+    // Enxuga o payload removendo campos vazios para reduzir tamanho
+    var txsLean = txs.map(function(t){
+      var o = { id: t.id, desc: t.desc, valor: t.valor, tipo: t.tipo, forma: t.forma, data: t.data, pago: t.pago };
+      if (t.obs)          o.obs          = t.obs;
+      if (t.subcategoria) o.subcategoria = t.subcategoria;
+      if (t.vencimento)   o.vencimento   = t.vencimento;
+      if (t.recorrente)   o.recorrente   = true;
+      if (t.parcelas)     o.parcelas     = t.parcelas;
+      if (t.parcelaAtual) o.parcelaAtual = t.parcelaAtual;
+      return o;
+    });
+    await _sendField('txs',    JSON.stringify(txsLean));
     await _sendField('metas',  JSON.stringify(metas));
     await _sendField('config', JSON.stringify({ budgetLimit: budgetLimit, cardLimits: cardLimits }));
 
