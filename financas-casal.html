@@ -2842,8 +2842,9 @@ function renderBento(data) {
   var saiSub = document.getElementById('bentoSaidasSub');
   if (saiSub) {
     var nFix = visible.filter(function(t){ return t.tipo==='fixo'; }).length;
-    var nVar = visible.filter(function(t){ return t.tipo==='variavel'; }).length;
-    saiSub.textContent = nFix + ' fixos · ' + nVar + ' variáveis';
+    var nVar = visible.filter(function(t){ return t.tipo==='variavel' && t.forma!=='black' && t.forma!=='prime'; }).length;
+    var nCard = visible.filter(function(t){ return (t.forma==='black'||t.forma==='prime') && t.tipo!=='entrada'; }).length;
+    saiSub.textContent = nFix + ' fixos · ' + nVar + ' variáveis · ' + nCard + ' cartões';
   }
 
   var salEl = document.getElementById('bentoSaldoVal');
@@ -3188,11 +3189,13 @@ function renderNovoGrafico(data) {
   var statsEl = document.getElementById('ngStatsCard');
   if (statsEl) {
     var parcsCount = parcelasEmAberto(visible).length;
+    var totalVariaveisPix = visible.reduce(function(s,t){ return s + (t.tipo==='variavel' && t.forma!=='black' && t.forma!=='prime' ? Number(t.valor||0) : 0); }, 0);
+    var totalCartoes      = visible.reduce(function(s,t){ return s + ((t.forma==='black'||t.forma==='prime') && t.tipo!=='entrada' ? Number(t.valor||0) : 0); }, 0);
     statsEl.innerHTML =
-      '<div class="ng-stat-item"><div class="ng-stat-lbl">Entradas</div><div class="ng-stat-val" style="color:var(--accent)">'   + fmt(totalEntradas)  + '</div></div>'
-    + '<div class="ng-stat-item"><div class="ng-stat-lbl">Gastos fixos</div><div class="ng-stat-val" style="color:var(--rose)">'  + fmt(totalFixos)     + '</div></div>'
-    + '<div class="ng-stat-item"><div class="ng-stat-lbl">Gastos variáveis</div><div class="ng-stat-val" style="color:var(--rose)">' + fmt(totalVariaveis) + '</div></div>'
-    + '<div class="ng-stat-item"><div class="ng-stat-lbl">Parcelas em aberto</div><div class="ng-stat-val" style="color:var(--violet)">' + parcsCount + ' série' + (parcsCount !== 1 ? 's' : '') + '</div></div>';
+      '<div class="ng-stat-item"><div class="ng-stat-lbl">Entradas</div><div class="ng-stat-val" style="color:var(--accent)">'       + fmt(totalEntradas)      + '</div></div>'
+    + '<div class="ng-stat-item"><div class="ng-stat-lbl">Gastos fixos</div><div class="ng-stat-val" style="color:var(--rose)">'      + fmt(totalFixos)          + '</div></div>'
+    + '<div class="ng-stat-item"><div class="ng-stat-lbl">Gastos variáveis</div><div class="ng-stat-val" style="color:var(--rose)">'  + fmt(totalVariaveisPix)  + '</div></div>'
+    + '<div class="ng-stat-item"><div class="ng-stat-lbl">Cartões (Black + Prime)</div><div class="ng-stat-val" style="color:var(--violet)">' + fmt(totalCartoes) + '</div></div>';
   }
 
   // 3. Visual cards por cartão
