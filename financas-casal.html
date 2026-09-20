@@ -406,6 +406,21 @@
   .btn-edit-group{ background:var(--violet); border:none; border-radius:8px; padding:6px 14px; font-size:12px; cursor:pointer; color:#fff; font-weight:700; }
   .btn-pencil{ background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:13px; padding:2px 5px; border-radius:5px; line-height:1; }
   .btn-pencil:hover{ background:var(--bg); color:var(--violet); }
+  .btn-copy{ background:none; border:none; cursor:pointer; color:var(--ink-soft); font-size:13px; padding:2px 5px; border-radius:5px; line-height:1; }
+  .btn-copy:hover{ background:var(--bg); color:#0984e3; }
+
+  /* modal de duplicar lançamento */
+  .dup-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1100; display:flex; align-items:center; justify-content:center; }
+  .dup-modal{ background:var(--card); border-radius:18px; width:340px; box-shadow:0 8px 40px rgba(0,0,0,.18); overflow:hidden; }
+  .dup-modal-head{ display:flex; align-items:center; justify-content:space-between; padding:16px 22px 10px; border-bottom:1px solid var(--border); }
+  .dup-modal-head h4{ margin:0; font-size:15px; font-weight:700; color:var(--ink); }
+  .dup-modal-body{ padding:18px 22px 10px; }
+  .dup-modal-body p{ margin:0 0 14px; font-size:13px; color:var(--ink-soft); line-height:1.5; }
+  .dup-modal-body label{ font-size:12px; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:5px; }
+  .dup-modal-body input[type=number]{ width:100%; box-sizing:border-box; padding:8px 12px; border:1px solid var(--border); border-radius:9px; font-size:15px; background:var(--bg); color:var(--ink); outline:none; }
+  .dup-modal-foot{ display:flex; gap:10px; justify-content:flex-end; padding:12px 22px 18px; }
+  .btn-dup-cancel{ background:none; border:1px solid var(--border); border-radius:8px; padding:7px 14px; font-size:12px; cursor:pointer; color:var(--ink-soft); }
+  .btn-dup-ok{ background:#0984e3; border:none; border-radius:8px; padding:7px 16px; font-size:12px; cursor:pointer; color:#fff; font-weight:700; }
 
   /* modal de sugestão de pagamento (ao marcar entrada como recebida) */
   .suggest-modal-foot{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 22px; border-top:1px solid var(--border); font-size:12px; color: var(--ink-soft); }
@@ -887,9 +902,74 @@
     .charts{ grid-template-columns: 1fr !important; }
     .forecast-grid{ grid-template-columns: 1fr !important; }
   }
+
+  /* ===== PIN overlay ===== */
+  #pinOverlay{
+    position:fixed;inset:0;z-index:99999;
+    background:var(--bg);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+    font-family:'Manrope',sans-serif;
+  }
+  #pinOverlay h2{ font-size:22px;font-weight:800;color:var(--ink);margin:0; }
+  #pinOverlay p { font-size:13px;color:var(--ink-soft);margin:0; }
+  #pinInput{
+    width:160px;padding:12px 16px;font-size:22px;letter-spacing:8px;
+    text-align:center;border:2px solid var(--border);border-radius:12px;
+    background:var(--surface);color:var(--ink);outline:none;
+    font-family:'Manrope',sans-serif;transition:border-color .2s;
+  }
+  #pinInput:focus{ border-color:var(--violet); }
+  #pinBtn{
+    padding:10px 32px;background:var(--violet);color:#fff;
+    border:none;border-radius:10px;font-size:14px;font-weight:700;
+    cursor:pointer;font-family:'Manrope',sans-serif;transition:opacity .15s;
+  }
+  #pinBtn:hover{ opacity:.85; }
+  #pinError{ color:#e1483f;font-size:12px;display:none; }
+  #pinLock{ font-size:36px;margin-bottom:4px; }
 </style>
 </head>
 <body>
+
+<!-- ===== PIN de acesso ===== -->
+<div id="pinOverlay">
+  <div id="pinLock">🔒</div>
+  <h2>Financeiro A2</h2>
+  <p>Digite o PIN para continuar</p>
+  <input type="password" id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="8"
+    placeholder="••••" autocomplete="off"
+    onkeydown="if(event.key==='Enter')checkPin()">
+  <button id="pinBtn" onclick="checkPin()">Entrar</button>
+  <span id="pinError">PIN incorreto — tente novamente</span>
+</div>
+<script>
+// PIN protegido por hash SHA-256 — nunca aparece em texto plano
+// Para trocar o PIN: gere o hash em https://emn178.github.io/online-tools/sha256.html
+const _PIN_HASH = '158a323a7ba44870f23d96f1516dd70aa48e9a72db4ebb026b0a89e212a208ab'; // PIN padrão: 2026
+
+async function checkPin(){
+  var val = document.getElementById('pinInput').value;
+  if(!val){ return; }
+  var buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(val));
+  var hex  = Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+  if(hex === _PIN_HASH){
+    sessionStorage.setItem('pin-ok','1');
+    document.getElementById('pinOverlay').style.display = 'none';
+  } else {
+    document.getElementById('pinError').style.display = 'block';
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinInput').focus();
+  }
+}
+
+// Se já foi verificado nesta sessão, remove overlay imediatamente
+if(sessionStorage.getItem('pin-ok') === '1'){
+  document.addEventListener('DOMContentLoaded', function(){
+    var o = document.getElementById('pinOverlay');
+    if(o) o.style.display = 'none';
+  });
+}
+</script>
 
 <div class="app">
   <aside class="sidebar">
@@ -1328,6 +1408,25 @@
   </div>
 </div>
 
+<!-- Modal de duplicar lançamento para meses futuros -->
+<div class="dup-modal-overlay" id="dupModalOverlay" hidden onclick="if(event.target===this)closeDupModal()">
+  <div class="dup-modal" role="dialog" aria-modal="true">
+    <div class="dup-modal-head">
+      <h4>⧉ Duplicar para próximos meses</h4>
+      <button type="button" class="cat-modal-close" onclick="closeDupModal()">✕</button>
+    </div>
+    <div class="dup-modal-body">
+      <p id="dupModalDesc"></p>
+      <label for="dupMeses">Quantos meses à frente?</label>
+      <input type="number" id="dupMeses" min="1" max="60" value="1" onkeydown="if(event.key==='Enter')executeDuplicate()">
+    </div>
+    <div class="dup-modal-foot">
+      <button class="btn-dup-cancel" onclick="closeDupModal()">Cancelar</button>
+      <button class="btn-dup-ok" onclick="executeDuplicate()">Duplicar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal de edição de lançamento -->
 <div class="edit-modal-overlay" id="editModalOverlay" hidden onclick="if(event.target===this)closeEditModal()">
   <div class="edit-modal" role="dialog" aria-modal="true">
@@ -1375,7 +1474,7 @@
 <footer>feito com cuidado para organizar a vida financeira de <span>vocês dois</span></footer>
 
 <script>
-const STORAGE_KEY = 'financas-casal-v21';
+const STORAGE_KEY = 'financas-casal-v23';
 
 // ===== Sincronização com Google Sheets =====
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbz7mtFep13Gst9J4lYNFMu0c57KNlplmfpongiKB_vIalyLl7GUvd71zbdJ4gCfHkNG7g/exec';
@@ -1384,6 +1483,22 @@ let _syncPushTimer = null;
 let _seededFresh = false; // true quando este dispositivo acabou de fazer seed (sem dados locais)
 let _syncBusy = false;
 let _pendingPush = false; // true enquanto há mudanças locais ainda não enviadas ao Sheets
+
+// ─── Segurança: escaping HTML e validação de dados externos ──────────────────
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function validateTx(t){
+  if (!t || typeof t !== 'object') return false;
+  if (typeof t.id !== 'string' || !t.id) return false;
+  if (typeof t.desc !== 'string') return false;
+  var v = Number(t.valor);
+  if (!isFinite(v) || v < 0 || v > 9999999) return false;
+  if (typeof t.pago !== 'boolean') return false;
+  return true;
+}
 
 const METHOD_LABEL = { pix: 'Pix / boleto', black: 'Black (Alyson)', prime: 'Prime (Tania)' };
 const METHOD_PILL  = { pix: 'pix', black: 'black', prime: 'prime' };
@@ -1429,6 +1544,8 @@ function seed(){
   parcelasBlack('Carajás Construções',      186.54, 'casa',       3,  3);
   parcelasBlack('Listosilcar Chevrolet',    367.84, 'outros',     2, 10);
   parcelasBlack('CjStoreLtda',             370.00, 'compras',     1, 12);
+  parcelasBlack('Centauro CE47',           100.04, 'outros',      1,  7);
+  txs.push(black('NbsBurger',              79.19, 'lanche', '', BBLACK));
 
   // ── Cartão Prime — fatura set/2026 (fecha 01/09, vence 10/09) ───────
   var BPRIME = '2026-09-10';
@@ -1731,6 +1848,9 @@ async function syncPull(force) {
 
     var changed = false;
     if (Array.isArray(data.txs) && data.txs.length > 0) {
+      var safeTxs = data.txs.filter(validateTx);
+      if (safeTxs.length === 0) throw new Error('Dados do Sheets inválidos ou corrompidos');
+      data = Object.assign({}, data, { txs: safeTxs });
       if (_seededFresh) {
         // Device sem dados locais: adota os IDs do Sheets como verdade
         // para evitar duplicação (seed gera UUIDs novos a cada execução)
@@ -1927,7 +2047,7 @@ function sugerirPagamentos(valorDisponivel, mesRef){
 function suggestRowHTML(t){
   const venc = vencimentoBadgeHTML(t);
   return `<tr>
-    <td>${dayBadge(t.data)}${t.desc}</td>
+    <td>${dayBadge(t.data)}${esc(t.desc)}</td>
     <td class="method"><span class="pill ${METHOD_PILL[t.forma] || 'pix'}">${METHOD_LABEL[t.forma] || '—'}</span>${venc}</td>
     <td class="value out">− ${fmt(Number(t.valor || 0))}</td>
   </tr>`;
@@ -1963,7 +2083,7 @@ window.closeSuggestModal = function(){
 };
 
 function obsCellHTML(t, withProgress){
-  const text = t.obs || '—';
+  const text = esc(t.obs || '—');
   const venc = vencimentoBadgeHTML(t);
   const obs = t.obs;
   const p = withProgress ? parseInstallment(obs) : null;
@@ -2035,7 +2155,7 @@ function rowHTML(t, opts={}){
     ? `<td class="actions"><span class="proj-tag" title="Lançamento projetado — não existe ainda, é só uma estimativa">projetado</span></td>`
     : `<td class="actions"><button class="del" title="Remover" onclick="removeTx('${t.id}')">✕</button></td>`;
   return `<tr>
-    <td>${day ? dayBadge(t.data) : ''}${t.desc}</td>
+    <td>${day ? dayBadge(t.data) : ''}${esc(t.desc)}</td>
     <td class="method">${obsCellHTML(t, progress)}</td>
     ${methodCell}
     <td class="value ${valClass}">${sign}${fmt(Number(t.valor))}</td>
@@ -2369,7 +2489,7 @@ function categoryDetailRowHTML(t){
   const statusIcon = paid ? '✓' : '○';
   const statusCls = paid ? 'paid' : 'pending';
   return `<tr>
-    <td>${dayBadge(t.data)}${t.desc}</td>
+    <td>${dayBadge(t.data)}${esc(t.desc)}</td>
     <td class="method">${obsCellHTML(t, true)}</td>
     <td class="method"><span class="pill ${METHOD_PILL[t.forma]}">${METHOD_LABEL[t.forma]}</span></td>
     <td class="value ${valClass}">${sign}${fmt(Number(t.valor))}</td>
@@ -2653,7 +2773,7 @@ function renderTxUnificada() {
     var dot = '<span class="tx-type-dot" style="background:' + txDotColor(t) + '"></span>';
     var forma = isEnt ? 'Receita' : (TX_FORMA_LABEL[t.forma] || t.forma || '');
     var subLabel = t.sub ? (t.sub.charAt(0).toUpperCase() + t.sub.slice(1)) : '';
-    var obs = t.obs ? '<span style="color:var(--ink-soft);font-size:11px;display:block">' + t.obs + '</span>' : '';
+    var obs = t.obs ? '<span style="color:var(--ink-soft);font-size:11px;display:block">' + esc(t.obs) + '</span>' : '';
     var catObs = [subLabel, obs].filter(Boolean).join('');
     var dt = t.data ? new Date(t.data + 'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'short'}) : '—';
     var valSign = isEnt ? '+ ' : '− ';
@@ -2679,11 +2799,12 @@ function renderTxUnificada() {
       ? '<td></td>'
       : '<td style="white-space:nowrap">'
         + '<button class="btn-pencil" title="Editar" onclick="openEditModal(\'' + t.id + '\')">✎</button>'
+        + '<button class="btn-copy" title="Duplicar para próximos meses" onclick="openDupModal(\'' + t.id + '\')">⧉</button>'
         + '<button class="del" title="Remover" onclick="removeTx(\'' + t.id + '\')">✕</button>'
         + '</td>';
     return '<tr>'
-      + '<td><div class="tx-desc-cell">' + dot + (t.desc||'') + '</div><div style="font-size:11px;color:var(--ink-soft);margin-left:14px;">' + forma + '</div></td>'
-      + '<td>' + (subLabel ? '<div style="font-size:12px">' + subLabel + '</div>' : '') + (t.obs ? '<div style="font-size:11px;color:var(--ink-soft)">' + t.obs + '</div>' : '') + '</td>'
+      + '<td><div class="tx-desc-cell">' + dot + esc(t.desc) + '</div><div style="font-size:11px;color:var(--ink-soft);margin-left:14px;">' + forma + '</div></td>'
+      + '<td>' + (subLabel ? '<div style="font-size:12px">' + subLabel + '</div>' : '') + (t.obs ? '<div style="font-size:11px;color:var(--ink-soft)">' + esc(t.obs) + '</div>' : '') + '</td>'
       + '<td style="white-space:nowrap;font-size:12px;">' + dt + '</td>'
       + '<td style="text-align:right" class="' + valClass + '">' + valSign + fmt(Number(t.valor||0)) + '</td>'
       + statusCell
@@ -2934,7 +3055,7 @@ function renderBento(data) {
           var html = '<div class="bento-pizza-txs-label">' + cat.label + '</div>';
           html += catTxs.map(function(t) {
             return '<div class="bento-pizza-tx-row">'
-              + '<span class="bento-pizza-tx-desc">' + (t.desc || '—') + '</span>'
+              + '<span class="bento-pizza-tx-desc">' + esc(t.desc || '—') + '</span>'
               + '<span class="bento-pizza-tx-val">-' + fmt(Number(t.valor || 0)) + '</span>'
               + '</div>';
           }).join('');
@@ -3198,7 +3319,7 @@ function render(){
   if(overdueBanner && overdueBannerText){
     const atrasadas = txs.filter(isContaAtrasada);
     if(atrasadas.length){
-      const nomes = atrasadas.map(t => `<strong>${t.desc}</strong> (venceu dia ${String(t.vencimento).padStart(2,'0')})`).join(', ');
+      const nomes = atrasadas.map(t => `<strong>${esc(t.desc)}</strong> (venceu dia ${String(t.vencimento).padStart(2,'0')})`).join(', ');
       const verbo = atrasadas.length === 1 ? 'está atrasada' : 'estão atrasadas';
       overdueBanner.hidden = false;
       overdueBannerText.innerHTML = `${atrasadas.length} conta${atrasadas.length > 1 ? 's' : ''} ${verbo} e ainda ${atrasadas.length === 1 ? 'não foi marcada' : 'não foram marcadas'} como paga: ${nomes}.`;
@@ -3465,7 +3586,7 @@ function renderAPagar() {
     rows.push(
       '<div class="apagar-item ' + cls + '">' +
         '<span class="apagar-dot" style="background:' + dot + '"></span>' +
-        '<span class="apagar-desc">' + t.desc + '<span class="apagar-tipo">' + tipoLabel + '</span></span>' +
+        '<span class="apagar-desc">' + esc(t.desc) + '<span class="apagar-tipo">' + tipoLabel + '</span></span>' +
         '<span class="apagar-venc">' + dataLabel + '</span>' +
         '<span class="apagar-val">' + fmt(t.valor) + '</span>' +
         '<button class="apagar-btn" onclick="pagarItem(\'' + t.id + '\')">✓ Pagar</button>' +
@@ -3585,6 +3706,78 @@ window.removeTx = function(id){
   txs = txs.filter(t=>t.id !== id);
   save(txs);
   render();
+};
+
+// ===== Duplicar lançamento para meses futuros =====
+var _dupId = null;
+
+window.openDupModal = function(id){
+  var t = txs.find(function(x){ return x.id === id; });
+  if(!t) return;
+  _dupId = id;
+  document.getElementById('dupModalDesc').textContent =
+    '"' + t.desc + '" — ' + (t.obs ? t.obs + ' — ' : '') +
+    'R$ ' + Number(t.valor).toLocaleString('pt-BR', {minimumFractionDigits:2}) +
+    ' (' + (t.data || '') + ')';
+  document.getElementById('dupMeses').value = '1';
+  var ov = document.getElementById('dupModalOverlay');
+  ov.hidden = false;
+  setTimeout(function(){ document.getElementById('dupMeses').focus(); document.getElementById('dupMeses').select(); }, 50);
+};
+
+window.closeDupModal = function(){
+  document.getElementById('dupModalOverlay').hidden = true;
+  _dupId = null;
+};
+
+window.executeDuplicate = function(){
+  if(!_dupId) return;
+  var t = txs.find(function(x){ return x.id === _dupId; });
+  if(!t){ closeDupModal(); return; }
+
+  var n = parseInt(document.getElementById('dupMeses').value, 10);
+  if(!n || n < 1 || n > 60){ alert('Informe um número entre 1 e 60.'); return; }
+
+  // Tenta detectar "X/Y" na obs para incrementar parcela
+  var obsBase = t.obs || '';
+  var parcelMatch = obsBase.match(/^(\d+)\/(\d+)$/);
+
+  for(var i = 1; i <= n; i++){
+    // Avança a data base por i meses
+    var baseDate = t.data || new Date().toISOString().slice(0,10);
+    var d = new Date(baseDate + 'T12:00:00');
+    d.setMonth(d.getMonth() + i);
+    var newData = d.toISOString().slice(0,10);
+
+    // Obs: incrementa parcela se detectada
+    var newObs = obsBase;
+    if(parcelMatch){
+      var parcNum = parseInt(parcelMatch[1], 10) + i;
+      var parcTotal = parseInt(parcelMatch[2], 10);
+      if(parcNum <= parcTotal){
+        newObs = parcNum + '/' + parcTotal;
+      } else {
+        // Ultrapassa total de parcelas — não duplica além do limite
+        break;
+      }
+    }
+
+    txs.push({
+      id: crypto.randomUUID(),
+      desc: t.desc,
+      obs: newObs,
+      valor: t.valor,
+      forma: t.forma,
+      tipo: t.tipo,
+      data: newData,
+      subcategoria: t.subcategoria || 'outros',
+      pago: false
+    });
+  }
+
+  save(txs);
+  render();
+  closeDupModal();
 };
 
 window.togglePago = function(id){
@@ -4373,7 +4566,7 @@ window.mostrarVincularPicker = function(bankId){
   picker.innerHTML = available.length
     ? `<select class="conc-picker-select" id="vincSel_${bankId}">
         <option value="">— selecionar lançamento —</option>
-        ${available.map(t=>`<option value="${t.id}">${t.desc} · ${fmt(Number(t.valor))} · ${fmtConcDate(t.data)}</option>`).join('')}
+        ${available.map(t=>`<option value="${esc(t.id)}">${esc(t.desc)} · ${fmt(Number(t.valor))} · ${fmtConcDate(t.data)}</option>`).join('')}
        </select>
        <button class="conc-add" style="background:#059669;" onclick="confirmarVinculo('${bankId}')">✓ Vincular</button>
        <button class="conc-unlink-btn" onclick="document.getElementById('vincPicker_${bankId}').remove()">Cancelar</button>`
