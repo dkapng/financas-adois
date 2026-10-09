@@ -1659,6 +1659,10 @@ function seed(){
   for(var rvi = 1; rvi <= 3; rvi++){
     txs.push(receita('Reembolso Ventana', 220.00, '', makeDate(rvi, 25), 'salario'));
   }
+  // Reembolso Internet Tania — R$100, dia 05, todos os meses
+  for(var rti = 0; rti < TOTAL_MESES; rti++){
+    txs.push(receita('Reembolso Internet Tania', 100.00, '', makeDate(rti, 5), 'salario'));
+  }
 
   // ── Parcela do carro — R$1.850, pix, 2/60 (set/2026 a nov/2031) ──────
   for(var ci = 0; ci < 59; ci++){
@@ -1778,14 +1782,23 @@ function _migrateData(arr) {
     if(t.desc === 'GMdB' && Math.abs(t.valor - 1700) < 0.01){ t.valor = 960.00; changed = true; }
   });
 
-  // 3. Remover entradas obsoletas (Caju entrada + Reembolso Internet Tania)
+  // 3. Remover entradas obsoletas (Caju entrada)
   var antes = arr.length;
   arr = arr.filter(function(t){
     if(t.desc === 'Caju' && t.tipo === 'entrada') return false;
-    if(t.desc === 'Reembolso - Internet Tania') return false;
     return true;
   });
   if(arr.length !== antes) changed = true;
+
+  // 3b. Adicionar Reembolso Internet Tania se ausente — R$100, dia 05, todos os meses
+  if(!arr.some(function(t){ return t.desc === 'Reembolso Internet Tania'; })){
+    var BRIT = '2026-09-01';
+    for(var riti = 0; riti < 16; riti++){
+      var dtRit = am(BRIT, riti).slice(0,8) + '05';
+      arr.push(newTx('Reembolso Internet Tania', 100.00, 'pix', 'entrada', dtRit, 'salario', '', dtRit < '2026-10-01'));
+    }
+    changed = true;
+  }
 
   // 4. Marcar como pago tudo anterior a out/2026
   arr.forEach(function(t){
