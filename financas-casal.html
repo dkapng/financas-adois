@@ -1745,6 +1745,9 @@ function seed(){
       data: dt, subcategoria: 'saude', pago: false });
   });
 
+  // Marca como pago tudo que venceu antes de out/2026 — não há dívidas anteriores
+  txs.forEach(function(t){ if(t.data < '2026-10-01') t.pago = true; });
+
   return txs;
 }
 
