@@ -1475,7 +1475,7 @@ if(sessionStorage.getItem('pin-ok') === '1'){
 <footer>feito com cuidado para organizar a vida financeira de <span>vocês dois</span></footer>
 
 <script>
-const STORAGE_KEY = 'financas-casal-v24';
+const STORAGE_KEY = 'financas-casal-v25';
 
 // ===== Sincronização com Google Sheets =====
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbz7mtFep13Gst9J4lYNFMu0c57KNlplmfpongiKB_vIalyLl7GUvd71zbdJ4gCfHkNG7g/exec';
@@ -1642,26 +1642,18 @@ function seed(){
 
   var TOTAL_MESES = 16; // set/2026 → dez/2027
   for(var mi = 0; mi < TOTAL_MESES; mi++){
-    // Pague Menos — R$5.500, dia 05
-    txs.push(receita('Pague Menos', 5500.00, '', makeDate(mi, 5), 'salario'));
-
-    // Ventana — R$1.500, dia 05
+    // Ventana — R$1.500, dia 05 (todos os meses)
     txs.push(receita('Ventana', 1500.00, '', makeDate(mi, 5), 'salario'));
-
-    // GMdB — R$1.700 até nov/2026 (mi 0-2), depois R$960
-    var gmdbValor = mi <= 2 ? 1700.00 : 960.00;
-    txs.push(receita('GMdB', gmdbValor, '', makeDate(mi, 20), 'salario'));
-
-    // Ventana — R$1.000, dia 30
+    // Pague Menos — R$5.500, dia 05 (todos os meses)
+    txs.push(receita('Pague Menos', 5500.00, '', makeDate(mi, 5), 'salario'));
+    // GMdB — R$960, dia 20 (todos os meses)
+    txs.push(receita('GMdB', 960.00, '', makeDate(mi, 20), 'salario'));
+    // Ventana — R$1.000, dia 30 (todos os meses)
     txs.push(receita('Ventana', 1000.00, '', makeDate(mi, 30), 'salario'));
-
-    // Caju — R$450 entrada dia 10
-    txs.push(receita('Caju', 450.00, '', makeDate(mi, 10), 'outros'));
-    // Caju — R$450 saída mercado dia 10 (fixo, já pago)
-    txs.push(saidaFixaMes('Caju (mercado)', 450.00, 10, mi, 'mercado', 'pix', true));
-
-    // Reembolso Internet Tania — R$100 entrada, dia 01
-    txs.push(receita('Reembolso - Internet Tania', 100.00, '', makeDate(mi, 1), 'outros'));
+  }
+  // Camila (GMdB) — R$1.000, dia 10, 6 meses a partir de out/2026 (mi=1)
+  for(var cmi = 1; cmi <= 6; cmi++){
+    txs.push(receita('Camila (GMdB)', 1000.00, '', makeDate(cmi, 10), 'salario'));
   }
 
   // ── Parcela do carro — R$1.850, pix, 2/60 (set/2026 a nov/2031) ──────
