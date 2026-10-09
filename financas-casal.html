@@ -1743,6 +1743,112 @@ function seed(){
   return txs;
 }
 
+// ── Migração de dados: aplica todas as correções acumuladas ─────────────────
+function _migrateData(arr) {
+  var changed = false;
+
+  function am(base, n) {
+    var d = new Date(base + 'T12:00:00'); d.setMonth(d.getMonth() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  function mkDate(base, n, dia) {
+    var b = am(base, n), yr = b.slice(0,4), mo = b.slice(5,7);
+    var last = new Date(parseInt(yr), parseInt(mo), 0).getDate();
+    return yr + '-' + mo + '-' + String(Math.min(dia, last)).padStart(2,'0');
+  }
+  function newTx(desc, valor, forma, tipo, data, sub, obs, pago) {
+    return { id: crypto.randomUUID(), desc: desc, obs: obs||'', valor: valor,
+      forma: forma, tipo: tipo, data: data, subcategoria: sub||'outros', pago: !!pago };
+  }
+  function hasEntry(desc, data) {
+    return arr.some(function(t){ return t.desc === desc && t.data === data; });
+  }
+
+  // 1. Corrigir Brastemp: 150,33 → 150,88
+  arr.forEach(function(t){
+    if(t.desc === 'Brastemp' && Math.abs(t.valor - 150.33) < 0.01){ t.valor = 150.88; changed = true; }
+  });
+
+  // 2. Corrigir GMdB: 1.700 → 960
+  arr.forEach(function(t){
+    if(t.desc === 'GMdB' && Math.abs(t.valor - 1700) < 0.01){ t.valor = 960.00; changed = true; }
+  });
+
+  // 3. Remover entradas obsoletas (Caju entrada + Reembolso Internet Tania)
+  var antes = arr.length;
+  arr = arr.filter(function(t){
+    if(t.desc === 'Caju' && t.tipo === 'entrada') return false;
+    if(t.desc === 'Reembolso - Internet Tania') return false;
+    return true;
+  });
+  if(arr.length !== antes) changed = true;
+
+  // 4. Marcar como pago tudo anterior a out/2026
+  arr.forEach(function(t){
+    if(t.data < '2026-10-01' && !t.pago){ t.pago = true; changed = true; }
+  });
+
+  // 5. Adicionar Solar Magazin (1/3 ago, 2/3 set, 3/3 out) se ausente
+  var solarEntries = [
+    { obs: '1/3', data: '2026-08-10' },
+    { obs: '2/3', data: '2026-09-10' },
+    { obs: '3/3', data: '2026-10-10' }
+  ];
+  solarEntries.forEach(function(s){
+    if(!arr.some(function(t){ return t.desc === 'Solar Magazin' && t.data === s.data; })){
+      arr.push(newTx('Solar Magazin', 102.19, 'prime', 'variavel', s.data, 'compras', s.obs, s.data < '2026-10-01'));
+      changed = true;
+    }
+  });
+
+  // 6. Adicionar entradas Prime out/2026 ausentes
+  var BPOCT = '2026-10-10';
+  var primeOct = [
+    { desc: 'ZP*Jamile Si50428',        valor: 114.54, sub: 'servicos',    obs: '' },
+    { desc: 'Adobe (EBN*ADOBE)',          valor:  55.00, sub: 'tecnologia',  obs: '' },
+    { desc: 'OM Comercial de Petról.',   valor:  50.00, sub: 'combustivel', obs: '' },
+    { desc: 'OM Comercial de Petról.',   valor: 100.00, sub: 'combustivel', obs: '' },
+    { desc: 'Supermercado Pinheiro',     valor: 115.34, sub: 'mercado',     obs: '' },
+    { desc: 'Super Raimundinho',         valor: 133.00, sub: 'mercado',     obs: '' },
+    { desc: 'MP*ACMMODADITNES',          valor:  62.00, sub: 'vestuario',   obs: '' },
+    { desc: 'T R S Comercio de Conf.',   valor:  22.00, sub: 'vestuario',   obs: '' }
+  ];
+  // Para OM (valor diferente): verifica por desc+valor+data
+  primeOct.forEach(function(e){
+    var exists = arr.some(function(t){
+      return t.desc === e.desc && t.data === BPOCT && Math.abs(t.valor - e.valor) < 0.01;
+    });
+    if(!exists){ arr.push(newTx(e.desc, e.valor, 'prime', 'variavel', BPOCT, e.sub, e.obs, false)); changed = true; }
+  });
+
+  // 7. Novas parceladas Prime a partir de out/2026
+  var novosParc = [
+    { desc: 'Eliene Star F',   valor: 34.50, sub: 'servicos', total: 2 },
+    { desc: 'Eliza Fit',       valor: 60.00, sub: 'saude',    total: 3 },
+    { desc: 'Shopee (Empor)',   valor: 44.79, sub: 'compras',  total: 3 }
+  ];
+  novosParc.forEach(function(p){
+    for(var i = 0; i < p.total; i++){
+      var dt = am(BPOCT, i);
+      if(!arr.some(function(t){ return t.desc === p.desc && t.data === dt; })){
+        arr.push(newTx(p.desc, p.valor, 'prime', 'variavel', dt, p.sub, (i+1)+'/'+p.total, false));
+        changed = true;
+      }
+    }
+  });
+
+  // 8. Adicionar Camila (GMdB) se ausente — out/2026 a mar/2027
+  if(!arr.some(function(t){ return t.desc === 'Camila (GMdB)'; })){
+    for(var cmi = 1; cmi <= 6; cmi++){
+      var dt = mkDate('2026-09-01', cmi, 10);
+      arr.push(newTx('Camila (GMdB)', 1000.00, 'pix', 'entrada', dt, 'salario', '', dt < '2026-10-10'));
+    }
+    changed = true;
+  }
+
+  return { arr: arr, changed: changed };
+}
+
 function load(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -1750,31 +1856,14 @@ function load(){
       const parsed = JSON.parse(raw);
       // só usa o dado salvo se for um array não-vazio
       if(Array.isArray(parsed) && parsed.length > 0){
-        // ── Migração v25: garantir entradas de Camila (GMdB) ──────────────
-        const hasCamila = parsed.some(function(t){ return t.desc === 'Camila (GMdB)'; });
-        if(!hasCamila){
-          function _addMonths(base, n){
-            var d = new Date(base + 'T12:00:00'); d.setMonth(d.getMonth() + n);
-            return d.toISOString().slice(0,10);
-          }
-          // out/2026 (cmi=1) → mar/2027 (cmi=6)
-          for(var cmi = 1; cmi <= 6; cmi++){
-            var base = _addMonths('2026-09-01', cmi);
-            var yr = base.slice(0,4), mo = base.slice(5,7);
-            var last = new Date(parseInt(yr), parseInt(mo), 0).getDate();
-            var dia = Math.min(10, last);
-            parsed.push({ id: crypto.randomUUID(), desc: 'Camila (GMdB)', obs: '',
-              valor: 1000.00, forma: 'pix', tipo: 'entrada',
-              data: yr + '-' + mo + '-' + String(dia).padStart(2,'0'),
-              subcategoria: 'salario', pago: cmi === 1 }); // out já pago
-          }
-          try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); }catch(e){}
-          // agenda push para sincronizar com Sheets
+        var mig = _migrateData(parsed);
+        if(mig.changed){
+          try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(mig.arr)); }catch(e){}
           _pendingPush = true;
           clearTimeout(_syncPushTimer);
           _syncPushTimer = setTimeout(syncPush, 1500);
         }
-        return parsed;
+        return mig.arr;
       }
     }
   }catch(e){}
@@ -1919,6 +2008,10 @@ async function syncPull(force) {
           if (!localIds[t.id]) txs.push(t);
         });
       }
+      // Aplica migração nos dados vindos do Sheets também
+      var migResult = _migrateData(txs);
+      txs = migResult.arr;
+      if(migResult.changed){ _pendingPush = true; clearTimeout(_syncPushTimer); _syncPushTimer = setTimeout(syncPush, 1500); }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(txs));
       changed = true;
     }
