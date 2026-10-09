@@ -1475,7 +1475,7 @@ if(sessionStorage.getItem('pin-ok') === '1'){
 <footer>feito com cuidado para organizar a vida financeira de <span>vocês dois</span></footer>
 
 <script>
-const STORAGE_KEY = 'financas-casal-v23';
+const STORAGE_KEY = 'financas-casal-v24';
 
 // ===== Sincronização com Google Sheets =====
 const SYNC_URL = 'https://script.google.com/macros/s/AKfycbz7mtFep13Gst9J4lYNFMu0c57KNlplmfpongiKB_vIalyLl7GUvd71zbdJ4gCfHkNG7g/exec';
@@ -1585,13 +1585,38 @@ function seed(){
   parcelasPrime('Frederico Mend.',              41.32, 'servicos',   3,  3);
   parcelasPrime('Mudishop (MP*)',               13.99, 'compras',    3,  4);
   parcelasPrime('Renner',                      119.93, 'vestuario',  3,  3);
-  parcelasPrime('Brastemp',                    150.33, 'casa',       3, 18);
+  parcelasPrime('Brastemp',                    150.88, 'casa',       3, 18);
   parcelasPrime('Shopee (MBMOV)',               22.94, 'compras',    2,  4);
   parcelasPrime('Shopee (Ferra)',               30.79, 'compras',    2,  4);
   parcelasPrime('Casa Freitas',                 87.66, 'compras',    1,  3);
   parcelasPrime('Uhuu',                         51.40, 'compras',    1,  3);
   parcelasPrime('Natura Pay',                   39.98, 'beleza',     1,  5);
   parcelasPrime('Atacadão das Redes',          116.33, 'compras',    2,  6);
+
+  // Solar Magazin — compra em jul/2026, 3 parcelas: 1/3 ago, 2/3 set, 3/3 out
+  txs.push(prime('Solar Magazin',              102.19, 'compras', '1/3', addMonths(BPRIME, -1)));
+  parcelasPrime('Solar Magazin',               102.19, 'compras',    2,  3);
+
+  // ── Cartão Prime — fatura out/2026 (vence 10/10) ─────────────────────────
+  var BPRIME_OCT = addMonths(BPRIME, 1); // '2026-10-10'
+
+  // À vista outubro
+  txs.push(prime('ZP*Jamile Si50428',          114.54, 'servicos',    '', BPRIME_OCT));
+  txs.push(prime('Adobe (EBN*ADOBE)',            55.00, 'tecnologia',  '', BPRIME_OCT));
+  txs.push(prime('OM Comercial de Petról.',      50.00, 'combustivel', '', BPRIME_OCT));
+  txs.push(prime('OM Comercial de Petról.',     100.00, 'combustivel', '', BPRIME_OCT));
+  txs.push(prime('Supermercado Pinheiro',       115.34, 'mercado',     '', BPRIME_OCT));
+  txs.push(prime('Super Raimundinho',           133.00, 'mercado',     '', BPRIME_OCT));
+  txs.push(prime('MP*ACMMODADITNES',             62.00, 'vestuario',   '', BPRIME_OCT));
+  txs.push(prime('T R S Comercio de Conf.',      22.00, 'vestuario',   '', BPRIME_OCT));
+
+  // Novas parceladas — a partir de outubro
+  // Eliene Star F — 1/2 out, 2/2 nov
+  for(var eli = 0; eli < 2; eli++) txs.push(prime('Eliene Star F', 34.50, 'servicos', (eli+1)+'/2', addMonths(BPRIME_OCT, eli)));
+  // Eliza Fit — 1/3 out, 2/3 nov, 3/3 dez
+  for(var elz = 0; elz < 3; elz++) txs.push(prime('Eliza Fit', 60.00, 'saude', (elz+1)+'/3', addMonths(BPRIME_OCT, elz)));
+  // Shopee Empor — 1/3 out, 2/3 nov, 3/3 dez
+  for(var sep = 0; sep < 3; sep++) txs.push(prime('Shopee (Empor)', 44.79, 'compras', (sep+1)+'/3', addMonths(BPRIME_OCT, sep)));
 
   var BRECV = '2026-09-01';
   function receita(desc, valor, obs, data, sub){
