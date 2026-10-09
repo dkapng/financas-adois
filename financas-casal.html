@@ -1655,6 +1655,10 @@ function seed(){
   for(var cmi = 1; cmi <= 6; cmi++){
     txs.push(receita('Camila (GMdB)', 1000.00, '', makeDate(cmi, 10), 'salario'));
   }
+  // Reembolso Ventana — R$220, dia 25, out/nov/dez 2026 (mi=1,2,3)
+  for(var rvi = 1; rvi <= 3; rvi++){
+    txs.push(receita('Reembolso Ventana', 220.00, '', makeDate(rvi, 25), 'salario'));
+  }
 
   // ── Parcela do carro — R$1.850, pix, 2/60 (set/2026 a nov/2031) ──────
   for(var ci = 0; ci < 59; ci++){
@@ -1836,6 +1840,15 @@ function _migrateData(arr) {
       }
     }
   });
+
+  // 8a. Adicionar Reembolso Ventana se ausente — out/nov/dez 2026
+  if(!arr.some(function(t){ return t.desc === 'Reembolso Ventana'; })){
+    var rvDates = ['2026-10-25','2026-11-25','2026-12-25'];
+    rvDates.forEach(function(dt){
+      arr.push(newTx('Reembolso Ventana', 220.00, 'pix', 'entrada', dt, 'salario', '', false));
+    });
+    changed = true;
+  }
 
   // 8. Adicionar Camila (GMdB) se ausente — out/2026 a mar/2027
   if(!arr.some(function(t){ return t.desc === 'Camila (GMdB)'; })){
