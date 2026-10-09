@@ -1506,7 +1506,8 @@ const METHOD_PILL  = { pix: 'pix', black: 'black', prime: 'prime' };
 const SUBCATEGORY_LABEL = {
   casa: 'Casa', mercado: 'Mercado', lanche: 'Lanche', transporte: 'Transporte',
   saude: 'Saúde', educacao: 'Educação', lazer: 'Lazer', compras: 'Compras',
-  tecnologia: 'Tecnologia', contas: 'Contas', salario: 'Salário / renda', outros: 'Outros'
+  tecnologia: 'Tecnologia', contas: 'Contas', salario: 'Salário / renda', outros: 'Outros',
+  combustivel: 'Combustível', servicos: 'Serviços', beleza: 'Beleza', vestuario: 'Vestuário'
 };
 const CUSTOM_CATS_KEY = 'financas-casal-custom-cats-v1';
 let customCats = {};
@@ -1668,7 +1669,7 @@ function seed(){
   for(var ci = 0; ci < 59; ci++){
     var carParcNum = 2 + ci;
     txs.push({ id: crypto.randomUUID(), desc: 'Parcela do carro', obs: carParcNum + '/60',
-      valor: 1850.00, forma: 'pix', tipo: 'fixo',
+      valor: 1850.00, forma: 'pix', tipo: 'fixo', vencimento: 10,
       data: makeDate(ci, 10), subcategoria: 'transporte', pago: false });
   }
 
@@ -1680,7 +1681,7 @@ function seed(){
       return base.slice(0,8) + '17';
     })(si);
     txs.push({ id: crypto.randomUUID(), desc: 'Seguro do carro', obs: segParcNum + '/10',
-      valor: 153.27, forma: 'pix', tipo: 'fixo',
+      valor: 153.27, forma: 'pix', tipo: 'fixo', vencimento: 17,
       data: segDate, subcategoria: 'transporte', pago: false });
   }
 
@@ -1695,8 +1696,8 @@ function seed(){
   ];
   for(var fi = 0; fi < TOTAL_MESES; fi++){
     fixosDia10.forEach(function(g){
-      txs.push({ id: crypto.randomUUID(), desc: g.desc, obs: 'Vencimento dia 10',
-        valor: g.valor, forma: 'pix', tipo: 'fixo',
+      txs.push({ id: crypto.randomUUID(), desc: g.desc, obs: '',
+        valor: g.valor, forma: 'pix', tipo: 'fixo', vencimento: 10, recorrente: true,
         data: makeDate(fi, 10), subcategoria: g.sub, pago: false });
     });
   }
@@ -1704,10 +1705,10 @@ function seed(){
   // ── Claro DKA e Claro Alice — R$47,90 cada, dia 10, 16 meses ────────
   for(var cli = 0; cli < TOTAL_MESES; cli++){
     txs.push({ id: crypto.randomUUID(), desc: 'Claro DKA', obs: '',
-      valor: 47.90, forma: 'pix', tipo: 'fixo',
+      valor: 47.90, forma: 'pix', tipo: 'fixo', vencimento: 10, recorrente: true,
       data: makeDate(cli, 10), subcategoria: 'contas', pago: false });
     txs.push({ id: crypto.randomUUID(), desc: 'Claro Alice', obs: '',
-      valor: 47.90, forma: 'pix', tipo: 'fixo',
+      valor: 47.90, forma: 'pix', tipo: 'fixo', vencimento: 10, recorrente: true,
       data: makeDate(cli, 10), subcategoria: 'contas', pago: false });
   }
 
@@ -1790,8 +1791,16 @@ function _migrateData(arr) {
   });
   if(arr.length !== antes) changed = true;
 
-  // 3b. Adicionar Reembolso Internet Tania se ausente — R$100, dia 05, todos os meses
-  if(!arr.some(function(t){ return t.desc === 'Reembolso Internet Tania'; })){
+  // 3b. Remover versão antiga com traço (Reembolso - Internet Tania) se nova já existe
+  var hasNewReembolso = arr.some(function(t){ return t.desc === 'Reembolso Internet Tania'; });
+  var hasOldReembolso = arr.some(function(t){ return t.desc === 'Reembolso - Internet Tania'; });
+  if(hasNewReembolso && hasOldReembolso){
+    arr = arr.filter(function(t){ return t.desc !== 'Reembolso - Internet Tania'; });
+    changed = true;
+  }
+
+  // 3c. Adicionar Reembolso Internet Tania se ausente — R$100, dia 05, todos os meses
+  if(!arr.some(function(t){ return t.desc === 'Reembolso Internet Tania' || t.desc === 'Reembolso - Internet Tania'; })){
     var BRIT = '2026-09-01';
     for(var riti = 0; riti < 16; riti++){
       var dtRit = am(BRIT, riti).slice(0,8) + '05';
@@ -1887,20 +1896,26 @@ function _migrateData(arr) {
     for(var mfi = 0; mfi < TOTAL_MESES_FIX; mfi++){
       var dt10fix = am(BFIX, mfi).slice(0,8) + '10';
       fixosDia10List.forEach(function(g){
-        arr.push(newTx(g.desc, g.valor, 'pix', 'fixo', dt10fix, g.sub, 'Vencimento dia 10', dt10fix < '2026-10-01'));
+        var tx = newTx(g.desc, g.valor, 'pix', 'fixo', dt10fix, g.sub, '', dt10fix < '2026-10-01');
+        tx.vencimento = 10; tx.recorrente = true;
+        arr.push(tx);
       });
-      arr.push(newTx('Claro DKA',   47.90, 'pix', 'fixo', dt10fix, 'contas', '', dt10fix < '2026-10-01'));
-      arr.push(newTx('Claro Alice', 47.90, 'pix', 'fixo', dt10fix, 'contas', '', dt10fix < '2026-10-01'));
+      var txDKA = newTx('Claro DKA',   47.90, 'pix', 'fixo', dt10fix, 'contas', '', dt10fix < '2026-10-01');
+      txDKA.vencimento = 10; txDKA.recorrente = true; arr.push(txDKA);
+      var txAli = newTx('Claro Alice', 47.90, 'pix', 'fixo', dt10fix, 'contas', '', dt10fix < '2026-10-01');
+      txAli.vencimento = 10; txAli.recorrente = true; arr.push(txAli);
     }
     // Parcela do carro — 59 parcelas a partir de set/2026 (2/60 … 60/60), dia 10
     for(var pci = 0; pci < 59; pci++){
       var dtCar = am(BFIX, pci).slice(0,8) + '10';
-      arr.push(newTx('Parcela do carro', 1850.00, 'pix', 'fixo', dtCar, 'transporte', (2+pci)+'/60', dtCar < '2026-10-01'));
+      var txCar = newTx('Parcela do carro', 1850.00, 'pix', 'fixo', dtCar, 'transporte', (2+pci)+'/60', dtCar < '2026-10-01');
+      txCar.vencimento = 10; arr.push(txCar);
     }
     // Seguro do carro — 5 parcelas a partir de set/2026 (6/10 … 10/10), dia 17
     for(var psi = 0; psi < 5; psi++){
       var dtSeg = am(BFIX, psi).slice(0,8) + '17';
-      arr.push(newTx('Seguro do carro', 153.27, 'pix', 'fixo', dtSeg, 'transporte', (6+psi)+'/10', dtSeg < '2026-10-01'));
+      var txSeg = newTx('Seguro do carro', 153.27, 'pix', 'fixo', dtSeg, 'transporte', (6+psi)+'/10', dtSeg < '2026-10-01');
+      txSeg.vencimento = 17; arr.push(txSeg);
     }
     changed = true;
   }
