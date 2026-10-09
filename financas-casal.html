@@ -1846,6 +1846,39 @@ function _migrateData(arr) {
     changed = true;
   }
 
+  // 9. Adicionar contas fixas se ausentes (CAGECE, Enel, Internet, etc.)
+  if(!arr.some(function(t){ return t.desc === 'CAGECE'; })){
+    var BFIX = '2026-09-01';
+    var TOTAL_MESES_FIX = 16; // set/2026 → dez/2027
+    var fixosDia10List = [
+      { desc: 'CAGECE',         valor: 50.41,  sub: 'contas'   },
+      { desc: 'Enel',           valor: 120.63, sub: 'contas'   },
+      { desc: 'Internet',       valor: 79.90,  sub: 'contas'   },
+      { desc: 'Empréstimo',     valor: 270.00, sub: 'outros'   },
+      { desc: 'FIES',           valor: 270.00, sub: 'educacao' },
+      { desc: 'Internet Tania', valor: 79.90,  sub: 'contas'   }
+    ];
+    for(var mfi = 0; mfi < TOTAL_MESES_FIX; mfi++){
+      var dt10fix = am(BFIX, mfi).slice(0,8) + '10';
+      fixosDia10List.forEach(function(g){
+        arr.push(newTx(g.desc, g.valor, 'pix', 'fixo', dt10fix, g.sub, 'Vencimento dia 10', dt10fix < '2026-10-01'));
+      });
+      arr.push(newTx('Claro DKA',   47.90, 'pix', 'fixo', dt10fix, 'contas', '', dt10fix < '2026-10-01'));
+      arr.push(newTx('Claro Alice', 47.90, 'pix', 'fixo', dt10fix, 'contas', '', dt10fix < '2026-10-01'));
+    }
+    // Parcela do carro — 59 parcelas a partir de set/2026 (2/60 … 60/60), dia 10
+    for(var pci = 0; pci < 59; pci++){
+      var dtCar = am(BFIX, pci).slice(0,8) + '10';
+      arr.push(newTx('Parcela do carro', 1850.00, 'pix', 'fixo', dtCar, 'transporte', (2+pci)+'/60', dtCar < '2026-10-01'));
+    }
+    // Seguro do carro — 5 parcelas a partir de set/2026 (6/10 … 10/10), dia 17
+    for(var psi = 0; psi < 5; psi++){
+      var dtSeg = am(BFIX, psi).slice(0,8) + '17';
+      arr.push(newTx('Seguro do carro', 153.27, 'pix', 'fixo', dtSeg, 'transporte', (6+psi)+'/10', dtSeg < '2026-10-01'));
+    }
+    changed = true;
+  }
+
   return { arr: arr, changed: changed };
 }
 
