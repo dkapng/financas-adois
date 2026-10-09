@@ -1749,7 +1749,33 @@ function load(){
     if(raw){
       const parsed = JSON.parse(raw);
       // só usa o dado salvo se for um array não-vazio
-      if(Array.isArray(parsed) && parsed.length > 0){ return parsed; }
+      if(Array.isArray(parsed) && parsed.length > 0){
+        // ── Migração v25: garantir entradas de Camila (GMdB) ──────────────
+        const hasCamila = parsed.some(function(t){ return t.desc === 'Camila (GMdB)'; });
+        if(!hasCamila){
+          function _addMonths(base, n){
+            var d = new Date(base + 'T12:00:00'); d.setMonth(d.getMonth() + n);
+            return d.toISOString().slice(0,10);
+          }
+          // out/2026 (cmi=1) → mar/2027 (cmi=6)
+          for(var cmi = 1; cmi <= 6; cmi++){
+            var base = _addMonths('2026-09-01', cmi);
+            var yr = base.slice(0,4), mo = base.slice(5,7);
+            var last = new Date(parseInt(yr), parseInt(mo), 0).getDate();
+            var dia = Math.min(10, last);
+            parsed.push({ id: crypto.randomUUID(), desc: 'Camila (GMdB)', obs: '',
+              valor: 1000.00, forma: 'pix', tipo: 'entrada',
+              data: yr + '-' + mo + '-' + String(dia).padStart(2,'0'),
+              subcategoria: 'salario', pago: cmi === 1 }); // out já pago
+          }
+          try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); }catch(e){}
+          // agenda push para sincronizar com Sheets
+          _pendingPush = true;
+          clearTimeout(_syncPushTimer);
+          _syncPushTimer = setTimeout(syncPush, 1500);
+        }
+        return parsed;
+      }
     }
   }catch(e){}
   // Sem dados válidos: limpa todas as chaves financas-casal-* e carrega seed
